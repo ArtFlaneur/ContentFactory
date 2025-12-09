@@ -10,6 +10,7 @@ interface GeneratedPostProps {
 
 export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, onReset }) => {
   const [copied, setCopied] = React.useState(false);
+  const [shortCopied, setShortCopied] = React.useState(false);
 
   if (!post) {
     return (
@@ -23,10 +24,25 @@ export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, onReset }) =
     );
   }
 
+  const cleanText = (text: string) => {
+    return text
+      .replace(/\*\*/g, '') // Remove bold markers
+      .replace(/^\s*\*\s/gm, '- ') // Convert asterisk bullets to hyphens
+      .replace(/\*/g, ''); // Remove remaining italic markers
+  };
+
   const handleCopy = () => {
-    navigator.clipboard.writeText(post.content);
+    navigator.clipboard.writeText(cleanText(post.content));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleShortCopy = () => {
+    if (post.shortContent) {
+        navigator.clipboard.writeText(cleanText(post.shortContent));
+        setShortCopied(true);
+        setTimeout(() => setShortCopied(false), 2000);
+    }
   };
 
   return (
@@ -49,6 +65,25 @@ export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, onReset }) =
       
       <div className="flex-1 p-6 overflow-y-auto max-h-[600px] prose prose-slate prose-indigo max-w-none">
         <ReactMarkdown>{post.content}</ReactMarkdown>
+
+        {/* Short Version Section */}
+        {post.shortContent && (
+          <div className="mt-8 pt-6 border-t border-slate-200 not-prose">
+            <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide">X / Threads Version</h4>
+                <button
+                    onClick={handleShortCopy}
+                    className={`text-xs flex items-center font-medium transition-colors ${shortCopied ? 'text-green-600' : 'text-indigo-600 hover:text-indigo-800'}`}
+                >
+                    {shortCopied ? <Check size={12} className="mr-1" /> : <Copy size={12} className="mr-1" />}
+                    {shortCopied ? 'Copied' : 'Copy'}
+                </button>
+            </div>
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-sm text-slate-700 whitespace-pre-wrap font-sans">
+                {post.shortContent}
+            </div>
+          </div>
+        )}
 
         {/* Source Links Section */}
         {post.sourceLinks && post.sourceLinks.length > 0 && (

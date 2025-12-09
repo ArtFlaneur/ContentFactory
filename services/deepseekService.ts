@@ -60,6 +60,25 @@ export const generateLinkedInPost = async (request: PostRequest): Promise<Genera
     ? "If possible, weave in 1-2 timely facts from reputable sources published within the last 12 months. Every fact must include a Markdown link to the original source."
     : "";
 
+  let specificInstructions = `
+1. Open with a strong hook.
+2. Use short paragraphs with clean breaks for readability.
+3. Share tangible examples relevant to ${request.audience}.
+4. Close with a question or CTA that inspires responses.
+5. Output valid Markdown only.
+`;
+
+  if (request.frameworkId === "Framework 70") {
+    specificInstructions = `
+1. Create a "TOP-3 News" post.
+2. The TOPIC contains 3 links to news items.
+3. For each link, write a short, engaging accompaniment/summary (2-3 sentences) in the Art Flaneur voice.
+4. Include the link for each item.
+5. Open with a catchy headline about "Art World News" or similar.
+6. Output valid Markdown only.
+`;
+  }
+
   const prompt = `
 TARGET AUDIENCE: ${request.audience}
 CATEGORY: ${request.category}
@@ -67,12 +86,21 @@ TOPIC: ${request.topic}
 ${frameworkDirective}
 ${searchDirective}
 
-Write a high-impact LinkedIn post that follows the Art Flaneur/Eva voice:
-1. Open with a strong hook.
-2. Use short paragraphs with clean breaks for readability.
-3. Share tangible examples relevant to ${request.audience}.
-4. Close with a question or CTA that inspires responses.
-5. Output valid Markdown only.
+Write a high-impact LinkedIn post that follows the Art Flaneur/Eva voice.
+ALSO, generate a short version (max 280 chars) for X/Threads.
+
+${specificInstructions}
+
+IMPORTANT: Separate the LinkedIn post and the Short version with the delimiter "---SHORT_VERSION---".
+Structure your response exactly like this:
+
+[LinkedIn Post Content]
+
+---SHORT_VERSION---
+
+[Short Version Content]
+
+CONSTRAINT: Do NOT use the em dash character ("—"). Use a standard hyphen ("-") or double hyphen ("--") if absolutely necessary.
 `.trim();
 
   const body = {
@@ -113,12 +141,14 @@ Write a high-impact LinkedIn post that follows the Art Flaneur/Eva voice:
     throw new Error("Received an unexpected response from DeepSeek.");
   }
 
-  const text = data.choices?.[0]?.message?.content?.trim() || "No content generated.";
-  const sourceLinks = extractLinks(text);
+  const fullText = data.choices?.[0]?.message?.content?.trim() || "No content generated.";
+  const [linkedInContent, shortContent] = fullText.split("---SHORT_VERSION---").map(s => s.trim());
+  const sourceLinks = extractLinks(linkedInContent);
 
   return {
     title: `${request.category}: ${request.topic}`,
-    content: text,
+    content: linkedInContent,
+    shortContent: shortContent || undefined,
     frameworkUsed: request.frameworkId || "Auto-detected based on content",
     rationale: "Generated via DeepSeek chat completion.",
     sourceLinks: sourceLinks.length > 0 ? sourceLinks : undefined

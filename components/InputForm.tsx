@@ -102,7 +102,9 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => 
           <textarea 
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            placeholder="e.g., Why paper guides at festivals are dead..."
+            placeholder={frameworkId === 'Framework 70' 
+              ? "Paste 3 links to news items here..." 
+              : "e.g., Why paper guides at festivals are dead..."}
             rows={4}
             className="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border"
             required

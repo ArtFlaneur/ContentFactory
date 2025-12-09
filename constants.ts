@@ -97,6 +97,9 @@ export const FRAMEWORKS: Record<string, FrameworkDefinition[]> = {
   ],
   [Category.RED_FLAGS]: [
     { id: "Framework 69", name: "Red/Green Flags Joining Org", description: "List of flags." }
+  ],
+  [Category.NEWS]: [
+    { id: "Framework 70", name: "TOP-3 News", description: "3 news items from the past 24 hours." }
   ]
 };
 
@@ -196,6 +199,9 @@ CATEGORY 9: MONEY & VALUE
 
 CATEGORY 10: RED FLAGS / GREEN FLAGS
 - Framework 69: Red/Green Flags Joining Org. Structure: List of Red flags vs Green flags.
+
+CATEGORY 11: NEWS
+- Framework 70: TOP-3 News. Structure: 3 news items from the past 24 hours. Input: 3 links. Output: Short accompaniment for each news item + link.
 
 WHEN GENERATING:
 1. Select the most appropriate Framework from the user's selected CATEGORY based on their TOPIC.
