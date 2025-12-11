@@ -101,6 +101,7 @@ Structure your response exactly like this:
 [Short Version Content]
 
 CONSTRAINT: Do NOT use the em dash character ("—"). Use a standard hyphen ("-") or double hyphen ("--") if absolutely necessary.
+CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources that do not exist. If you mention a specific event, study, or news item, it must be real and verifiable. If you are unsure of a fact, do not include it. STRICT BAN ON HALLUCINATIONS.
 `.trim();
 
   const body = {
