@@ -3,7 +3,7 @@ import { InputForm } from './components/InputForm';
 import { GeneratedPost } from './components/GeneratedPost';
 import { PostRequest, GeneratedPost as GeneratedPostType } from './types';
 import { generateLinkedInPost } from './services/deepseekService';
-import { PenTool } from 'lucide-react';
+import { Factory } from 'lucide-react';
 
 declare const __HAS_DEEPSEEK_KEY__: boolean;
 const hasConfiguredApiKey = __HAS_DEEPSEEK_KEY__;
@@ -38,10 +38,10 @@ const App: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="bg-indigo-600 p-2 rounded-lg">
-                <PenTool className="text-white h-5 w-5" />
+                <Factory className="text-white h-5 w-5" />
             </div>
             <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 to-violet-700">
-              LinkedIn Architect
+              Content Factory
             </h1>
           </div>
           <div className="text-xs font-medium px-3 py-1 bg-slate-100 rounded-full text-slate-500">
