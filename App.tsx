@@ -12,12 +12,28 @@ import { Factory, Settings, Zap } from 'lucide-react';
 declare const __HAS_DEEPSEEK_KEY__: boolean;
 const hasConfiguredApiKey = __HAS_DEEPSEEK_KEY__;
 
+const Footer = () => (
+  <footer className="py-6 text-center text-sm text-slate-500 bg-slate-50 border-t border-slate-200">
+    <p>For any questions, please contact <a href="mailto:info@artflaneur.com.au" className="text-indigo-600 hover:underline">info@artflaneur.com.au</a></p>
+    <p className="mt-1 text-xs text-slate-400">Disclaimer: Generated content may contain errors. Please review before publishing.</p>
+  </footer>
+);
+
 const App: React.FC = () => {
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [generationCount, setGenerationCount] = useState(0);
+  
+  // Initialize generation count from localStorage for guests, or 0
+  const [generationCount, setGenerationCount] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('guest_generation_count');
+      return saved ? parseInt(saved, 10) : 0;
+    }
+    return 0;
+  });
+
   const [currentPost, setCurrentPost] = useState<GeneratedPostType | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,8 +49,10 @@ const App: React.FC = () => {
         const profile = await userService.getProfile(session.user.id);
         if (profile) {
           setUserSettings(profile.settings);
+          // For logged in users, always trust the DB count
           setGenerationCount(profile.generationCount || 0);
-          // If user is Pro in DB, update local state (though we should use profile.isPro directly)
+          
+          // If user is Pro in DB, update local state
           if (profile.isPro && profile.settings) {
              setUserSettings(prev => prev ? { ...prev, isPro: true } : null);
           }
@@ -44,18 +62,40 @@ const App: React.FC = () => {
 
     loadUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         setUserId(session.user.id);
-        // Reload profile on auth change
+        
+        // Check for guest generations to sync
+        const guestCount = parseInt(localStorage.getItem('guest_generation_count') || '0', 10);
+        
+        if (guestCount > 0 && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+           console.log(`Syncing ${guestCount} guest generations to user ${session.user.id}...`);
+           // Sync guest count to DB
+           const success = await userService.syncGuestGenerations(session.user.id, guestCount);
+           
+           if (success) {
+             console.log('Guest generations synced successfully.');
+             // Clear guest count only on success
+             localStorage.removeItem('guest_generation_count');
+           } else {
+             console.error('Failed to sync guest generations. Keeping local count.');
+           }
+        }
+
+        // Reload profile (now including synced count)
         const profile = await userService.getProfile(session.user.id);
         if (profile) {
           setUserSettings(profile.settings);
           setGenerationCount(profile.generationCount || 0);
         }
       } else {
+        // User logged out
         setUserId(null);
         setUserSettings(null);
+        // Revert to guest count from local storage
+        const saved = localStorage.getItem('guest_generation_count');
+        setGenerationCount(saved ? parseInt(saved, 10) : 0);
       }
     });
 
@@ -85,9 +125,18 @@ const App: React.FC = () => {
     try {
       const result = await generateLinkedInPost(enrichedRequest);
       setCurrentPost(result);
-      setGenerationCount(prev => prev + 1);
       
-      // Sync generation count to DB
+      // Update count
+      setGenerationCount(prev => {
+        const newCount = prev + 1;
+        // If guest, save to local storage
+        if (!userId) {
+          localStorage.setItem('guest_generation_count', newCount.toString());
+        }
+        return newCount;
+      });
+      
+      // Sync generation count to DB if logged in
       if (userId) {
         userService.incrementGenerationCount(userId).catch(console.error);
       }
@@ -128,26 +177,31 @@ const App: React.FC = () => {
 
   if (!userSettings || isEditingSettings) {
     return (
-      <OnboardingWizard 
-        onComplete={async (newSettings) => {
-          setUserSettings(newSettings);
-          setIsEditingSettings(false);
-          
-          // If we have a user ID (either from existing session or just signed up in Wizard), save settings
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-             await userService.updateSettings(session.user.id, newSettings);
-             setUserId(session.user.id);
-          }
-        }} 
-        initialSettings={userSettings}
-        onCancel={userSettings ? () => setIsEditingSettings(false) : undefined}
-      />
+      <div className="min-h-screen flex flex-col bg-slate-50">
+        <div className="flex-grow flex items-center justify-center">
+          <OnboardingWizard 
+            onComplete={async (newSettings) => {
+              setUserSettings(newSettings);
+              setIsEditingSettings(false);
+              
+              // If we have a user ID (either from existing session or just signed up in Wizard), save settings
+              const { data: { session } } = await supabase.auth.getSession();
+              if (session?.user) {
+                await userService.updateSettings(session.user.id, newSettings);
+                setUserId(session.user.id);
+              }
+            }} 
+            initialSettings={userSettings}
+            onCancel={userSettings ? () => setIsEditingSettings(false) : undefined}
+          />
+        </div>
+        <Footer />
+      </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900 flex flex-col">
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -236,6 +290,8 @@ const App: React.FC = () => {
           </div>
         </div>
       </main>
+
+      <Footer />
     </div>
   );
 };

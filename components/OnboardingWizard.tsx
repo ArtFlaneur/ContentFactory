@@ -21,6 +21,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSigningUp, setIsSigningUp] = useState(false);
+  const [isLoginMode, setIsLoginMode] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
   const [settings, setSettings] = useState<Partial<UserSettings>>(initialSettings || {
@@ -44,15 +45,26 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
         setStep(4);
       }
     } else if (step === 4) {
-      // Handle Signup
+      // Handle Auth
       setIsSigningUp(true);
       setAuthError(null);
       
       try {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-        });
+        let authResponse;
+        
+        if (isLoginMode) {
+          authResponse = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+        } else {
+          authResponse = await supabase.auth.signUp({
+            email,
+            password,
+          });
+        }
+
+        const { data, error } = authResponse;
 
         if (error) throw error;
 
@@ -210,8 +222,14 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
 
             {step === 4 && (
               <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                <h2 className="text-2xl font-bold text-slate-900">Save your Factory</h2>
-                <p className="text-slate-500">Create an account to save your preferences and access your factory from anywhere.</p>
+                <h2 className="text-2xl font-bold text-slate-900">
+                  {isLoginMode ? 'Welcome Back' : 'Save your Factory'}
+                </h2>
+                <p className="text-slate-500">
+                  {isLoginMode 
+                    ? 'Log in to access your saved settings and history.' 
+                    : 'Create an account to save your preferences and access your factory from anywhere.'}
+                </p>
                 
                 {authError && (
                   <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">
@@ -239,9 +257,30 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                     onChange={e => setPassword(e.target.value)}
                   />
                 </div>
-                <p className="text-xs text-slate-400">
-                  By creating an account, you agree to our Terms of Service.
-                </p>
+                
+                <div className="flex items-center justify-between text-sm">
+                  <button 
+                    onClick={() => {
+                      setIsLoginMode(!isLoginMode);
+                      setAuthError(null);
+                    }}
+                    className="text-indigo-600 hover:text-indigo-800 font-medium"
+                  >
+                    {isLoginMode ? "Need an account? Sign up" : "Already have an account? Log in"}
+                  </button>
+                  
+                  {isLoginMode && (
+                    <button className="text-slate-500 hover:text-slate-700">
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
+
+                {!isLoginMode && (
+                  <p className="text-xs text-slate-400">
+                    By creating an account, you agree to our Terms of Service.
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -270,7 +309,13 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                disabled={isSigningUp}
                className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
              >
-               {isSigningUp ? 'Creating Account...' : step === 4 ? 'Create Account & Launch' : (step === 3 && initialSettings) ? 'Save Changes' : 'Next Step'}
+               {isSigningUp 
+                 ? (isLoginMode ? 'Logging in...' : 'Creating Account...') 
+                 : step === 4 
+                   ? (isLoginMode ? 'Log In & Launch' : 'Create Account & Launch') 
+                   : (step === 3 && initialSettings) 
+                     ? 'Save Changes' 
+                     : 'Next Step'}
                {!isSigningUp && <ArrowRight className="ml-2 h-4 w-4" />}
              </button>
           </div>

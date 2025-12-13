@@ -37,22 +37,53 @@ export const userService = {
     if (error) throw error;
   },
 
-  async incrementGenerationCount(userId: string) {
-    // This is a bit naive for client-side, ideally done via RPC or server-side
-    // But for MVP it works.
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('generation_count')
-      .eq('id', userId)
-      .single();
-    
-    if (profile) {
-      const { error } = await supabase
+  async incrementGenerationCount(userId: string): Promise<boolean> {
+    return this.addGenerations(userId, 1);
+  },
+
+  async syncGuestGenerations(userId: string, guestCount: number): Promise<boolean> {
+    if (guestCount <= 0) return true;
+    return this.addGenerations(userId, guestCount);
+  },
+
+  async addGenerations(userId: string, amount: number): Promise<boolean> {
+    try {
+      // Try RPC first (atomic increment)
+      const { error: rpcError } = await supabase.rpc('increment_generation_count', { row_id: userId, amount });
+      
+      if (!rpcError) return true;
+
+      console.warn('RPC increment failed, falling back to client-side update:', rpcError.message);
+      
+      // Fallback to client-side update
+      const { data: profile, error: fetchError } = await supabase
         .from('profiles')
-        .update({ generation_count: (profile.generation_count || 0) + 1 })
-        .eq('id', userId);
-        
-      if (error) throw error;
+        .select('generation_count')
+        .eq('id', userId)
+        .single();
+      
+      if (fetchError) {
+        console.error('Error fetching profile for increment:', fetchError);
+        return false;
+      }
+      
+      if (profile) {
+        const newTotal = (profile.generation_count || 0) + amount;
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ generation_count: newTotal })
+          .eq('id', userId);
+          
+        if (updateError) {
+          console.error('Error updating generation count:', updateError);
+          return false;
+        }
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Unexpected error in addGenerations:', err);
+      return false;
     }
   },
 

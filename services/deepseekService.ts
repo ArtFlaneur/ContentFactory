@@ -108,7 +108,7 @@ IMPORTANT:
 2. Ensure the Call to Action (CTA) matches the GOAL (${request.goal}).
 3. Separate the sections with specific delimiters.
 
-Structure your response exactly like this:
+Structure your response exactly like this (ensure you include the delimiters):
 
 [LinkedIn Post Content]
 
@@ -181,30 +181,79 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources tha
 
   const fullText = data.choices?.[0]?.message?.content?.trim() || "No content generated.";
   
-  // Parse the sections
-  // Helper to safely extract content between delimiters
-  const extractSection = (text: string, startDelimiter: string, endDelimiter?: string) => {
-    const parts = text.split(startDelimiter);
-    if (parts.length < 2) return "";
-    const content = parts[1];
-    if (endDelimiter) {
-      return content.split(endDelimiter)[0].trim();
+  // Robust parsing using regex to split by delimiters
+  // Matches delimiters like ---SECTION_NAME--- potentially surrounded by newlines
+  const parts = fullText.split(/(?:^|\n)\s*---([A-Z_]+)---\s*(?:\n|$)/);
+  
+  let linkedInContent = parts[0].trim();
+  
+  // Clean up "Framework Used" line and "[LinkedIn Post Content]" marker
+  let detectedFramework = "Auto-detected based on content";
+  
+  // Helper to check and remove framework line
+  const processContent = (content: string) => {
+    let lines = content.split('\n');
+    let cleanLines: string[] = [];
+    let foundFramework = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      // Skip the placeholder if it appears
+      if (line === '[LinkedIn Post Content]') continue;
+      
+      // Check for Framework Used line (usually at the start)
+      if (!foundFramework && line.toLowerCase().includes('framework used:')) {
+        detectedFramework = line.split(/framework used:/i)[1]?.trim() || detectedFramework;
+        foundFramework = true;
+        continue;
+      }
+      
+      // Also handle the case where the placeholder and framework are on the same line
+      if (!foundFramework && line.includes('[LinkedIn Post Content]') && line.toLowerCase().includes('framework used:')) {
+         detectedFramework = line.split(/framework used:/i)[1]?.trim() || detectedFramework;
+         foundFramework = true;
+         continue;
+      }
+
+      cleanLines.push(lines[i]);
     }
-    return content.trim();
+    return cleanLines.join('\n').trim();
   };
 
-  const linkedInContent = fullText.split("---SHORT_VERSION---")[0].trim();
-  const shortContent = extractSection(fullText, "---SHORT_VERSION---", "---TELEGRAM_VERSION---");
-  const telegramContent = extractSection(fullText, "---TELEGRAM_VERSION---", "---INSTAGRAM_VERSION---");
-  const instagramContent = extractSection(fullText, "---INSTAGRAM_VERSION---", "---YOUTUBE_VERSION---");
-  const youtubeContent = extractSection(fullText, "---YOUTUBE_VERSION---", "---HOOKS---");
-  
+  linkedInContent = processContent(linkedInContent);
+
+  let shortContent: string | undefined;
+  let telegramContent: string | undefined;
+  let instagramContent: string | undefined;
+  let youtubeContent: string | undefined;
   let hooks: string[] = [];
-  const hooksSection = extractSection(fullText, "---HOOKS---");
-  if (hooksSection) {
-      hooks = hooksSection.split("\n")
-        .map(line => line.replace(/^\d+\.\s*/, '').trim())
-        .filter(line => line.length > 0);
+
+  // Iterate through the parts to assign content based on the captured delimiter
+  for (let i = 1; i < parts.length; i += 2) {
+    const sectionName = parts[i];
+    const sectionContent = parts[i + 1]?.trim();
+    
+    if (!sectionContent) continue;
+
+    switch (sectionName) {
+      case 'SHORT_VERSION':
+        shortContent = sectionContent;
+        break;
+      case 'TELEGRAM_VERSION':
+        telegramContent = sectionContent;
+        break;
+      case 'INSTAGRAM_VERSION':
+        instagramContent = sectionContent;
+        break;
+      case 'YOUTUBE_VERSION':
+        youtubeContent = sectionContent;
+        break;
+      case 'HOOKS':
+        hooks = sectionContent.split("\n")
+          .map(line => line.replace(/^\d+\.\s*/, '').trim())
+          .filter(line => line.length > 0);
+        break;
+    }
   }
 
   const sourceLinks = extractLinks(linkedInContent);
@@ -217,7 +266,7 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources tha
     instagramContent: instagramContent || undefined,
     youtubeContent: youtubeContent || undefined,
     alternativeHooks: hooks.length > 0 ? hooks : undefined,
-    frameworkUsed: request.frameworkId || "Auto-detected based on content",
+    frameworkUsed: request.frameworkId || detectedFramework,
     rationale: "Generated via DeepSeek chat completion.",
     sourceLinks: sourceLinks.length > 0 ? sourceLinks : undefined
   };
