@@ -80,6 +80,12 @@ export const generateLinkedInPost = async (request: PostRequest): Promise<Genera
   }
 
   const prompt = `
+AUTHOR CONTEXT:
+- Industry: ${request.userContext?.industry || 'Art & Culture'}
+- Role: ${request.userContext?.role || 'Thought Leader'}
+- Location: ${request.userContext?.city ? `${request.userContext.city}, ` : ''}${request.userContext?.country || 'Global'}
+- Target Reader Profile: ${request.userContext?.targetAudience || request.audience}
+
 TARGET AUDIENCE: ${request.audience}
 CATEGORY: ${request.category}
 TOPIC: ${request.topic}
@@ -88,7 +94,7 @@ TONE: ${request.tone}
 ${frameworkDirective}
 ${searchDirective}
 
-Write a high-impact LinkedIn post that follows the Art Flaneur/Eva voice.
+Write a high-impact LinkedIn post that follows the Art Flaneur/Eva voice, but adapted to the Author Context above.
 ALSO, generate a short version (max 280 chars) for X/Threads.
 ALSO, generate a Telegram version (use **bold** for emphasis, [text](url) for hidden links).
 ALSO, generate an Instagram Caption (engaging, more emojis, "link in bio", NO links in text).

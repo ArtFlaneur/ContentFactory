@@ -35,18 +35,54 @@ export enum PostTone {
 }
 
 export interface PostRequest {
-  audience: Audience;
+  audience: string;
   category: Category;
   topic: string;
   frameworkId?: string; // Optional specific framework ID if the user wants to be specific
-  includeNews: boolean; // New flag for grounding
-  goal: PostGoal;
-  tone: PostTone;
+  includeNews?: boolean; // New flag for grounding
+  goal?: PostGoal;
+  tone?: PostTone;
+  userContext?: {
+    industry: string;
+    role: string;
+    country?: string;
+    city?: string;
+    targetAudience: string;
+  };
 }
 
 export interface SourceLink {
   title: string;
   url: string;
+}
+
+// --- SaaS / User Types ---
+
+export interface UserProfile {
+  id: string; // UUID from Auth provider
+  email: string;
+  isPro: boolean;
+  generationCount: number;
+  onboardingCompleted: boolean;
+  settings: UserSettings;
+}
+
+export interface UserSettings {
+  industry: string;
+  role: string;
+  country: string;
+  city: string;
+  targetAudiences: string[]; // User's specific audiences (up to 3)
+  primaryPlatforms: ('linkedin' | 'twitter' | 'telegram' | 'instagram' | 'youtube')[];
+  preferredTone: PostTone;
+  customCTAs: string[]; // User's specific CTAs (e.g. "Book a call", "Subscribe to newsletter")
+  isPro?: boolean; // Optional flag for local state management before full backend
+}
+
+export interface OnboardingStep {
+  id: 'industry' | 'audience' | 'platforms' | 'review';
+  title: string;
+  description: string;
 }
 
 export interface GeneratedPost {

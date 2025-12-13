@@ -1,21 +1,38 @@
-import React from 'react';
-import { Audience, Category, PostRequest, PostGoal, PostTone } from '../types';
+import React, { useEffect } from 'react';
+import { Audience, Category, PostRequest, PostGoal, PostTone, UserSettings } from '../types';
 import { AUDIENCE_OPTIONS, CATEGORY_OPTIONS, GOAL_OPTIONS, TONE_OPTIONS, FRAMEWORKS, FRAMEWORK_PRO_TIPS } from '../constants';
 import { Loader2, Info, Globe, Lightbulb } from 'lucide-react';
 
 interface InputFormProps {
   onSubmit: (data: PostRequest) => void;
   isLoading: boolean;
+  userSettings?: UserSettings | null;
 }
 
-export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => {
-  const [audience, setAudience] = React.useState<Audience>(Audience.GALLERY_OWNERS);
+export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, userSettings }) => {
+  // Determine available audiences: User's custom ones OR defaults
+  const availableAudiences = (userSettings?.targetAudiences && userSettings.targetAudiences.filter(a => a.trim()).length > 0)
+    ? userSettings.targetAudiences.filter(a => a.trim())
+    : AUDIENCE_OPTIONS;
+
+  const [audience, setAudience] = React.useState<string>(availableAudiences[0]);
   const [category, setCategory] = React.useState<Category>(Category.HARSH_TRUTHS);
   const [topic, setTopic] = React.useState('');
   const [frameworkId, setFrameworkId] = React.useState('');
   const [includeNews, setIncludeNews] = React.useState(false);
   const [goal, setGoal] = React.useState<PostGoal>(PostGoal.AUTHORITY);
-  const [tone, setTone] = React.useState<PostTone>(PostTone.ANALYTICAL);
+  const [tone, setTone] = React.useState<PostTone>(userSettings?.preferredTone || PostTone.ANALYTICAL);
+
+  // Update defaults if userSettings change
+  useEffect(() => {
+    if (userSettings) {
+      const validAudiences = userSettings.targetAudiences?.filter(a => a.trim()) || [];
+      if (validAudiences.length > 0) {
+        setAudience(validAudiences[0]);
+      }
+      if (userSettings.preferredTone) setTone(userSettings.preferredTone);
+    }
+  }, [userSettings]);
 
   // Handle category change to reset specific framework selection
   const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -42,11 +59,11 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => 
         <label className="block text-sm font-medium text-slate-700 mb-1">Target Audience</label>
         <select 
             value={audience} 
-            onChange={(e) => setAudience(e.target.value as Audience)}
+            onChange={(e) => setAudience(e.target.value)}
             className="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 bg-slate-50 border"
         >
-            {AUDIENCE_OPTIONS.map((opt) => (
-            <option key={opt} value={opt}>{opt}</option>
+            {availableAudiences.map((opt, idx) => (
+              <option key={idx} value={opt}>{opt}</option>
             ))}
         </select>
         </div>

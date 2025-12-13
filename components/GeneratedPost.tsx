@@ -1,18 +1,32 @@
 import React from 'react';
-import { GeneratedPost as GeneratedPostType } from '../types';
+import { GeneratedPost as GeneratedPostType, UserSettings } from '../types';
 import { Copy, Check, RefreshCw, ExternalLink, Linkedin, Twitter, Send, Instagram, Youtube } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface GeneratedPostProps {
   post: GeneratedPostType | null;
   onReset: () => void;
+  userSettings?: UserSettings | null;
 }
 
 type Tab = 'linkedin' | 'twitter' | 'telegram' | 'instagram' | 'youtube';
 
-export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, onReset }) => {
+export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, onReset, userSettings }) => {
   const [copied, setCopied] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<Tab>('linkedin');
+
+  // Determine visible tabs based on user settings
+  const visibleTabs = React.useMemo(() => {
+    if (!userSettings?.primaryPlatforms) return ['linkedin', 'twitter', 'telegram', 'instagram', 'youtube']; // Default to all if no settings
+    return userSettings.primaryPlatforms;
+  }, [userSettings]);
+
+  // Ensure active tab is valid when settings change
+  React.useEffect(() => {
+    if (visibleTabs.length > 0 && !visibleTabs.includes(activeTab)) {
+      setActiveTab(visibleTabs[0] as Tab);
+    }
+  }, [visibleTabs, activeTab]);
 
   if (!post) {
     return (
@@ -90,11 +104,11 @@ export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, onReset }) =
 
       {/* Tabs */}
       <div className="flex px-4 border-b border-slate-200 overflow-x-auto">
-        {renderTabButton('linkedin', <Linkedin size={16} />, 'LinkedIn', false)}
-        {renderTabButton('twitter', <Twitter size={16} />, 'X / Threads', !post.shortContent)}
-        {renderTabButton('telegram', <Send size={16} />, 'Telegram', !post.telegramContent)}
-        {renderTabButton('instagram', <Instagram size={16} />, 'Instagram', !post.instagramContent)}
-        {renderTabButton('youtube', <Youtube size={16} />, 'YouTube', !post.youtubeContent)}
+        {visibleTabs.includes('linkedin') && renderTabButton('linkedin', <Linkedin size={16} />, 'LinkedIn', false)}
+        {visibleTabs.includes('twitter') && renderTabButton('twitter', <Twitter size={16} />, 'X / Threads', !post.shortContent)}
+        {visibleTabs.includes('telegram') && renderTabButton('telegram', <Send size={16} />, 'Telegram', !post.telegramContent)}
+        {visibleTabs.includes('instagram') && renderTabButton('instagram', <Instagram size={16} />, 'Instagram', !post.instagramContent)}
+        {visibleTabs.includes('youtube') && renderTabButton('youtube', <Youtube size={16} />, 'YouTube', !post.youtubeContent)}
       </div>
       
       <div className="flex-1 p-6 prose prose-slate prose-indigo max-w-none">
