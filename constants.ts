@@ -102,7 +102,8 @@ export const FRAMEWORKS: Record<string, FrameworkDefinition[]> = {
   ],
   [Category.NEWS]: [
     { id: "Framework 70", name: "TOP-3 News", description: "3 news items from the past 24 hours." }
-  ]
+  ],
+  [Category.COMMENTS]: []
 };
 
 // This context string contains the essence of the user's provided frameworks to ground the AI

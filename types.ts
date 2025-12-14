@@ -16,7 +16,8 @@ export enum Category {
   PRODUCTIVITY = "Productivity & Systems",
   MONEY_VALUE = "Money & Value",
   RED_FLAGS = "Red Flags / Green Flags",
-  NEWS = "News"
+  NEWS = "News",
+  COMMENTS = "Comments"
 }
 
 export enum PostGoal {
@@ -41,6 +42,8 @@ export interface PostRequest {
   topic: string;
   frameworkId?: string; // Optional specific framework ID if the user wants to be specific
   includeNews?: boolean; // New flag for grounding
+  sourceUrls?: string[]; // Optional: user-provided allowed sources (one URL per entry)
+  platforms?: UserSettings['primaryPlatforms']; // Optional: used for per-platform character limits
   goal?: PostGoal;
   tone?: PostTone;
   userContext?: {

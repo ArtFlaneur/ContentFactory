@@ -207,6 +207,7 @@ const App: React.FC = () => {
     // Inject User Context from Onboarding
     const enrichedRequest = {
       ...request,
+      platforms: userSettings?.primaryPlatforms,
       userContext: userSettings ? {
         industry: userSettings.industry,
         role: userSettings.role,
@@ -271,15 +272,10 @@ const App: React.FC = () => {
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment_success') === 'true' && userId) {
-      // Upgrade user
-      userService.upgradeToPro(userId).then(() => {
-        // Update local state
-        setIsPro(true);
-        setUserSettings(prev => prev ? { ...prev, isPro: true } : null);
-        // Clean URL
-        window.history.replaceState({}, '', window.location.pathname);
-        alert("🎉 Payment successful! You are now a Pro member.");
-      }).catch(console.error);
+      // Stripe webhook is the source of truth for Pro upgrades.
+      // Clean URL and show success; the next hydration cycle will pull `is_pro` from Supabase.
+      window.history.replaceState({}, '', window.location.pathname);
+      alert("🎉 Payment successful! Your Pro access will activate shortly.");
     }
   }, [userId]);
 

@@ -1,4 +1,4 @@
-import { PostRequest, GeneratedPost, SourceLink } from "../types";
+import { Category, PostRequest, GeneratedPost, SourceLink } from "../types";
 import { SYSTEM_CONTEXT } from "../constants";
 
 interface DeepSeekResponse {
@@ -8,6 +8,11 @@ interface DeepSeekResponse {
     };
   }>;
 }
+
+type ValidateApiResponse = {
+  valid: string[];
+  invalid: string[];
+};
 
 type SectionName =
   | "LINKEDIN"
@@ -122,13 +127,265 @@ const extractLinks = (markdown: string): SourceLink[] => {
   return links;
 };
 
+const uniq = <T,>(arr: T[]) => Array.from(new Set(arr));
+
+const validateUrls = async (urls: string[]): Promise<ValidateApiResponse> => {
+  const unique = uniq(urls.map((u) => u.trim()).filter(Boolean)).slice(0, 20);
+  if (unique.length === 0) return { valid: [], invalid: [] };
+
+  try {
+    const resp = await fetch('/api/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls: unique })
+    });
+    if (!resp.ok) return { valid: [], invalid: [] };
+    const data = (await resp.json()) as Partial<ValidateApiResponse>;
+    return {
+      valid: Array.isArray(data.valid) ? (data.valid as string[]) : [],
+      invalid: Array.isArray(data.invalid) ? (data.invalid as string[]) : []
+    };
+  } catch {
+    return { valid: [], invalid: [] };
+  }
+};
+
+const scrubInvalidUrlLines = (text: string | undefined, invalidUrls: string[]) => {
+  if (!text) return text;
+  if (!invalidUrls || invalidUrls.length === 0) return text;
+
+  const lines = text.split('\n');
+  const filtered = lines.filter((line) => !invalidUrls.some((u) => u && line.includes(u)));
+  // Collapse excessive blank lines after removals
+  return filtered.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+};
+
+const callDeepSeek = async (prompt: string) => {
+  const body = {
+    model: DEEPSEEK_MODEL,
+    temperature: 0.7,
+    messages: [
+      { role: "system", content: SYSTEM_CONTEXT },
+      { role: "user", content: prompt }
+    ]
+  };
+
+  let rawResponse: string;
+  const endpoint = getEndpoint();
+  const headers = getRequestHeaders();
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body)
+    });
+
+    rawResponse = await response.text();
+
+    if (!response.ok) {
+      console.error("DeepSeek API Error:", rawResponse);
+      throw new Error("Failed to generate post. Please check your API key or try again.");
+    }
+  } catch (error) {
+    console.error("DeepSeek Request Error:", error);
+    throw new Error("Failed to contact DeepSeek. Ensure the local proxy server is running and the API key is configured.");
+  }
+
+  let data: DeepSeekResponse;
+  try {
+    data = JSON.parse(rawResponse) as DeepSeekResponse;
+  } catch (parseError) {
+    console.error("DeepSeek Response Parse Error:", parseError, rawResponse);
+    throw new Error("Received an unexpected response from DeepSeek.");
+  }
+
+  return data.choices?.[0]?.message?.content?.trim() || "No content generated.";
+};
+
+type Platform = 'linkedin' | 'twitter' | 'telegram' | 'instagram' | 'youtube';
+
+const PLATFORM_CHAR_LIMITS: Record<Platform, number> = {
+  linkedin: 1250,
+  twitter: 280,
+  telegram: 4096,
+  instagram: 2200,
+  youtube: 10000
+};
+
+const truncateToCharLimit = (text: string | undefined, limit: number) => {
+  if (!text) return text;
+  const trimmed = text.trim();
+  if (trimmed.length <= limit) return trimmed;
+
+  // Keep room for ellipsis.
+  const suffix = '...';
+  const max = Math.max(0, limit - suffix.length);
+  const candidate = trimmed.slice(0, max);
+  const lastSpace = candidate.lastIndexOf(' ');
+  const cut = lastSpace > Math.max(30, max - 40) ? candidate.slice(0, lastSpace) : candidate;
+  return (cut.trimEnd() + suffix).slice(0, limit);
+};
+
+const coercePlatformsToEnforce = (platforms: PostRequest['platforms']): Platform[] => {
+  const all: Platform[] = ['linkedin', 'twitter', 'telegram', 'instagram', 'youtube'];
+  if (!Array.isArray(platforms) || platforms.length === 0) return all;
+  const set = new Set(platforms);
+  return all.filter((p) => set.has(p));
+};
+
+const generateComment = async (request: PostRequest): Promise<GeneratedPost> => {
+  const enforcePlatforms = coercePlatformsToEnforce(request.platforms);
+  const limitsForPrompt = enforcePlatforms
+    .map((p) => `${p.toUpperCase()}: <= ${PLATFORM_CHAR_LIMITS[p]} chars`)
+    .join('\n');
+
+  const prompt = `
+AUTHOR CONTEXT:
+- Industry: ${request.userContext?.industry || 'Art & Culture'}
+- Role: ${request.userContext?.role || 'Thought Leader'}
+- Location: ${request.userContext?.city ? `${request.userContext.city}, ` : ''}${request.userContext?.country || 'Global'}
+- Target Reader Profile: ${request.userContext?.targetAudience || request.audience}
+
+TASK:
+Write a comment reply to the POST TEXT below. This is a *comment*, not a long-form post.
+Make it feel human: specific, punchy, high-signal. No fluff.
+
+TARGET AUDIENCE: ${request.audience}
+GOAL: ${request.goal}
+TONE: ${request.tone}
+CATEGORY: Comments
+
+POST TEXT TO REPLY TO:
+${request.topic}
+
+OUTPUT RULES:
+- Output valid Markdown only.
+- Do NOT include links.
+- Do NOT use the em dash character ("—"); use '-' or '--' instead.
+- Respect character limits for the platforms the user selected.
+
+CHARACTER LIMITS (count every character, including spaces):
+${limitsForPrompt}
+
+Structure your response exactly like this (ensure you include the delimiters):
+
+[LinkedIn Comment]
+
+---SHORT_VERSION---
+
+[X/Threads Comment]
+
+---TELEGRAM_VERSION---
+
+[Telegram Comment]
+
+---INSTAGRAM_VERSION---
+
+[Instagram Comment]
+
+---YOUTUBE_VERSION---
+
+[YouTube Comment]
+
+STYLE GUIDE: Write like a human, not an AI. Avoid "AI-isms". Be raw, concrete, and conversational.
+CRITICAL: Do NOT fabricate facts, statistics, or quotes. If the post mentions a fact you can't verify, respond without adding new facts.
+`.trim();
+
+  const fullText = await callDeepSeek(prompt);
+
+  const parts = fullText.split(/(?:^|\n)\s*---([A-Z_]+)---\s*(?:\n|$)/);
+
+  let linkedInContent = parts[0].trim();
+  let shortContent: string | undefined;
+  let telegramContent: string | undefined;
+  let instagramContent: string | undefined;
+  let youtubeContent: string | undefined;
+
+  const parsedByDelimiters = parts.length > 1;
+
+  if (parsedByDelimiters) {
+    for (let i = 1; i < parts.length; i += 2) {
+      const sectionName = parts[i];
+      const sectionContent = parts[i + 1]?.trim();
+      if (!sectionContent) continue;
+
+      switch (sectionName) {
+        case "SHORT_VERSION":
+          shortContent = sectionContent;
+          break;
+        case "TELEGRAM_VERSION":
+          telegramContent = sectionContent;
+          break;
+        case "INSTAGRAM_VERSION":
+          instagramContent = sectionContent;
+          break;
+        case "YOUTUBE_VERSION":
+          youtubeContent = sectionContent;
+          break;
+      }
+    }
+  } else {
+    const fallback = parseSectionsByHeadings(fullText);
+    if (fallback.hasAny) {
+      if (fallback.linkedIn) linkedInContent = fallback.linkedIn;
+      if (fallback.short) shortContent = fallback.short;
+      if (fallback.telegram) telegramContent = fallback.telegram;
+      if (fallback.instagram) instagramContent = fallback.instagram;
+      if (fallback.youtube) youtubeContent = fallback.youtube;
+    }
+  }
+
+  const shouldEnforce = (p: Platform) => enforcePlatforms.includes(p);
+
+  linkedInContent = shouldEnforce('linkedin')
+    ? (truncateToCharLimit(linkedInContent, PLATFORM_CHAR_LIMITS.linkedin) || '')
+    : linkedInContent;
+  shortContent = shouldEnforce('twitter')
+    ? truncateToCharLimit(shortContent, PLATFORM_CHAR_LIMITS.twitter)
+    : shortContent;
+  telegramContent = shouldEnforce('telegram')
+    ? truncateToCharLimit(telegramContent, PLATFORM_CHAR_LIMITS.telegram)
+    : telegramContent;
+  instagramContent = shouldEnforce('instagram')
+    ? truncateToCharLimit(instagramContent, PLATFORM_CHAR_LIMITS.instagram)
+    : instagramContent;
+  youtubeContent = shouldEnforce('youtube')
+    ? truncateToCharLimit(youtubeContent, PLATFORM_CHAR_LIMITS.youtube)
+    : youtubeContent;
+
+  return {
+    title: `Comment reply`,
+    content: linkedInContent,
+    shortContent: shortContent || undefined,
+    telegramContent: telegramContent || undefined,
+    instagramContent: instagramContent || undefined,
+    youtubeContent: youtubeContent || undefined,
+    frameworkUsed: 'Comments',
+    rationale: 'Generated as a platform-ready comment reply.'
+  };
+};
+
 export const generateLinkedInPost = async (request: PostRequest): Promise<GeneratedPost> => {
+  if (request.category === Category.COMMENTS) {
+    return generateComment(request);
+  }
+
   const frameworkDirective = request.frameworkId
     ? `Use framework "${request.frameworkId}" exactly as defined.`
     : `Select the most relevant framework inside ${request.category} and mention it explicitly in the first line (e.g., "Framework Used: ...").`;
 
+  const hasAllowedSources = Array.isArray(request.sourceUrls) && request.sourceUrls.length > 0;
+  const allowedSourcesBlock = hasAllowedSources
+    ? `\nALLOWED_SOURCES (you may ONLY cite these exact URLs):\n${request.sourceUrls
+        .slice(0, 20)
+        .map((u, i) => `${i + 1}. ${u}`)
+        .join('\n')}\n`
+    : '';
+
   const searchDirective = request.includeNews
-    ? "If possible, weave in 1-2 timely facts from reputable sources published within the last 12 months. Every fact must include a Markdown link to the original source."
+    ? (hasAllowedSources
+        ? "You MUST use ONLY the ALLOWED_SOURCES above for any factual claims. For every factual claim, include a Markdown link to ONE of the ALLOWED_SOURCES. NEVER invent, guess, or modify URLs. If you cannot support a claim with ALLOWED_SOURCES, do not include that claim."
+        : "Do NOT add external facts, stats, or sources. Do NOT include any links. (No sources were provided.)")
     : "";
 
   let specificInstructions = `
@@ -164,6 +421,7 @@ GOAL: ${request.goal}
 TONE: ${request.tone}
 ${frameworkDirective}
 ${searchDirective}
+${allowedSourcesBlock}
 
 Write a high-impact LinkedIn post that follows the Art Flaneur/Eva voice, but adapted to the Author Context above.
 ALSO, generate a short version (max 280 chars) for X/Threads.
@@ -212,45 +470,7 @@ STYLE GUIDE: Write like a human, not an AI. Avoid "AI-isms" like "In the ever-ev
 CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources that do not exist. If you mention a specific event, study, or news item, it must be real and verifiable. If you are unsure of a fact, do not include it. STRICT BAN ON HALLUCINATIONS.
 `.trim();
 
-  const body = {
-    model: DEEPSEEK_MODEL,
-    temperature: 0.7,
-    messages: [
-      { role: "system", content: SYSTEM_CONTEXT },
-      { role: "user", content: prompt }
-    ]
-  };
-
-  let rawResponse: string;
-  const endpoint = getEndpoint();
-  const headers = getRequestHeaders();
-  try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body)
-    });
-
-    rawResponse = await response.text();
-
-    if (!response.ok) {
-      console.error("DeepSeek API Error:", rawResponse);
-      throw new Error("Failed to generate post. Please check your API key or try again.");
-    }
-  } catch (error) {
-    console.error("DeepSeek Request Error:", error);
-    throw new Error("Failed to contact DeepSeek. Ensure the local proxy server is running and the API key is configured.");
-  }
-
-  let data: DeepSeekResponse;
-  try {
-    data = JSON.parse(rawResponse) as DeepSeekResponse;
-  } catch (parseError) {
-    console.error("DeepSeek Response Parse Error:", parseError, rawResponse);
-    throw new Error("Received an unexpected response from DeepSeek.");
-  }
-
-  const fullText = data.choices?.[0]?.message?.content?.trim() || "No content generated.";
+  const fullText = await callDeepSeek(prompt);
 
   // Primary parser: split by strict delimiters like ---SHORT_VERSION---
   // Matches delimiters potentially surrounded by newlines
@@ -348,7 +568,26 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources tha
     }
   }
 
-  const sourceLinks = extractLinks(linkedInContent);
+  // Validate and scrub any invalid URLs the model still emitted.
+  const allLinks = uniq([
+    ...extractLinks(linkedInContent).map((l) => l.url),
+    ...(shortContent ? extractLinks(shortContent).map((l) => l.url) : []),
+    ...(telegramContent ? extractLinks(telegramContent).map((l) => l.url) : []),
+    ...(youtubeContent ? extractLinks(youtubeContent).map((l) => l.url) : [])
+  ]);
+
+  const { valid: validUrls, invalid: invalidUrls } = await validateUrls(allLinks);
+  const validSet = new Set(validUrls);
+
+  if (invalidUrls.length > 0) {
+    linkedInContent = scrubInvalidUrlLines(linkedInContent, invalidUrls) || '';
+    shortContent = scrubInvalidUrlLines(shortContent, invalidUrls);
+    telegramContent = scrubInvalidUrlLines(telegramContent, invalidUrls);
+    youtubeContent = scrubInvalidUrlLines(youtubeContent, invalidUrls);
+    hooks = hooks.filter((h) => !invalidUrls.some((u) => h.includes(u)));
+  }
+
+  const sourceLinks = extractLinks(linkedInContent).filter((l) => validSet.size === 0 ? true : validSet.has(l.url));
 
   return {
     title: `${request.category}: ${request.topic}`,

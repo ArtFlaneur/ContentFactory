@@ -20,8 +20,11 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, userS
   const [topic, setTopic] = React.useState('');
   const [frameworkId, setFrameworkId] = React.useState('');
   const [includeNews, setIncludeNews] = React.useState(false);
+  const [sourceUrlsText, setSourceUrlsText] = React.useState('');
   const [goal, setGoal] = React.useState<PostGoal>(PostGoal.AUTHORITY);
   const [tone, setTone] = React.useState<PostTone>(userSettings?.preferredTone || PostTone.ANALYTICAL);
+
+  const isComments = category === Category.COMMENTS;
 
   // Update defaults if userSettings change
   useEffect(() => {
@@ -36,14 +39,44 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, userS
 
   // Handle category change to reset specific framework selection
   const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setCategory(e.target.value as Category);
+    const nextCategory = e.target.value as Category;
+    setCategory(nextCategory);
     setFrameworkId(''); // Reset when category changes
+
+    if (nextCategory === Category.COMMENTS) {
+      // Comments mode doesn't use frameworks or news grounding.
+      setIncludeNews(false);
+      setSourceUrlsText('');
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic.trim()) return;
-    onSubmit({ audience, category, topic, frameworkId, includeNews, goal, tone });
+
+    const effectiveIncludeNews = !isComments && includeNews;
+
+    const sourceUrls = effectiveIncludeNews
+      ? Array.from(
+          new Set(
+            sourceUrlsText
+              .split(/\r?\n/)
+              .map((s) => s.trim())
+              .filter(Boolean)
+          )
+        ).slice(0, 20)
+      : undefined;
+
+    onSubmit({
+      audience,
+      category,
+      topic,
+      frameworkId: isComments ? undefined : frameworkId,
+      includeNews: effectiveIncludeNews,
+      sourceUrls: sourceUrls && sourceUrls.length > 0 ? sourceUrls : undefined,
+      goal,
+      tone
+    });
   };
 
   const currentFrameworks = FRAMEWORKS[category] || [];
@@ -110,84 +143,113 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, userS
         </select>
         </div>
 
-        {/* Specific Framework Selection */}
-        <div>
+        {/* Specific Framework Selection (not used for Comments) */}
+        {!isComments && (
+          <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-                Specific Framework <span className="text-slate-400 font-normal">(Optional)</span>
+              Specific Framework <span className="text-slate-400 font-normal">(Optional)</span>
             </label>
             <select
-                value={frameworkId}
-                onChange={(e) => setFrameworkId(e.target.value)}
-                className="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 bg-slate-50 border"
+              value={frameworkId}
+              onChange={(e) => setFrameworkId(e.target.value)}
+              className="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 bg-slate-50 border"
             >
-                <option value="">✨ Auto-select best structure</option>
-                {currentFrameworks.map((fw) => (
-                    <option key={fw.id} value={fw.id}>
-                        {fw.id}: {fw.name}
-                    </option>
-                ))}
+              <option value="">✨ Auto-select best structure</option>
+              {currentFrameworks.map((fw) => (
+                <option key={fw.id} value={fw.id}>
+                  {fw.id}: {fw.name}
+                </option>
+              ))}
             </select>
-            
+              
             {/* Contextual Help for Selected Framework */}
             {selectedFrameworkDef ? (
-                <div className="mt-2 space-y-2">
-                    <div className="p-3 bg-indigo-50 text-indigo-800 text-xs rounded-lg flex items-start">
-                        <Info className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
-                        <span>
-                            <strong>Structure:</strong> {selectedFrameworkDef.description}
-                        </span>
-                    </div>
-                    {FRAMEWORK_PRO_TIPS[selectedFrameworkDef.id] && (
-                        <div className="p-3 bg-amber-50 text-amber-900 text-xs rounded-lg flex items-start border border-amber-100">
-                            <Lightbulb className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5 text-amber-600" />
-                            <span>
-                                <strong>Pro Tip:</strong> {FRAMEWORK_PRO_TIPS[selectedFrameworkDef.id]}
-                            </span>
-                        </div>
-                    )}
+              <div className="mt-2 space-y-2">
+                <div className="p-3 bg-indigo-50 text-indigo-800 text-xs rounded-lg flex items-start">
+                  <Info className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Structure:</strong> {selectedFrameworkDef.description}
+                  </span>
                 </div>
+                {FRAMEWORK_PRO_TIPS[selectedFrameworkDef.id] && (
+                  <div className="p-3 bg-amber-50 text-amber-900 text-xs rounded-lg flex items-start border border-amber-100">
+                    <Lightbulb className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5 text-amber-600" />
+                    <span>
+                      <strong>Pro Tip:</strong> {FRAMEWORK_PRO_TIPS[selectedFrameworkDef.id]}
+                    </span>
+                  </div>
+                )}
+              </div>
             ) : (
-                 <p className="text-xs text-slate-500 mt-1">
-                    Leave on "Auto-select" to let AI choose the best framework for your topic.
-                </p>
+               <p className="text-xs text-slate-500 mt-1">
+                Leave on "Auto-select" to let AI choose the best framework for your topic.
+              </p>
             )}
-        </div>
+          </div>
+        )}
 
         {/* Topic Input */}
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Topic / Idea</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            {isComments ? 'Post text to reply to' : 'Topic / Idea'}
+          </label>
           <textarea 
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
             placeholder={frameworkId === 'Framework 70' 
               ? "Paste 3 links to news items here..." 
-              : "e.g., Why paper guides at festivals are dead..."}
-            rows={4}
+              : isComments
+                ? "Paste the post you're replying to (or the key excerpt)..."
+                : "e.g., Why paper guides at festivals are dead..."}
+            rows={isComments ? 6 : 4}
             className="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border"
             required
           />
         </div>
 
-        {/* Search Grounding Toggle */}
-        <div className="flex items-start">
-          <div className="flex items-center h-5">
-            <input
-              id="includeNews"
-              name="includeNews"
-              type="checkbox"
-              checked={includeNews}
-              onChange={(e) => setIncludeNews(e.target.checked)}
-              className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-slate-300 rounded"
-            />
-          </div>
-          <div className="ml-3 text-sm">
-            <label htmlFor="includeNews" className="font-medium text-slate-700 flex items-center">
-               <Globe className="w-3.5 h-3.5 mr-1.5 text-indigo-500" />
-               Enrich with latest news & facts
-            </label>
-            <p className="text-slate-500">AI will search for real-time data to back up your post.</p>
-          </div>
-        </div>
+        {/* Search Grounding Toggle (not used for Comments) */}
+        {!isComments && (
+          <>
+            <div className="flex items-start">
+              <div className="flex items-center h-5">
+                <input
+                  id="includeNews"
+                  name="includeNews"
+                  type="checkbox"
+                  checked={includeNews}
+                  onChange={(e) => setIncludeNews(e.target.checked)}
+                  className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-slate-300 rounded"
+                />
+              </div>
+              <div className="ml-3 text-sm">
+                <label htmlFor="includeNews" className="font-medium text-slate-700 flex items-center">
+                   <Globe className="w-3.5 h-3.5 mr-1.5 text-indigo-500" />
+                   Enrich with latest news & facts
+                </label>
+                <p className="text-slate-500">AI will search for real-time data to back up your post.</p>
+              </div>
+            </div>
+
+            {includeNews && (
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Sources (URLs)
+                  <span className="text-slate-400 font-normal"> (one per line)</span>
+                </label>
+                <textarea
+                  value={sourceUrlsText}
+                  onChange={(e) => setSourceUrlsText(e.target.value)}
+                  placeholder="https://example.com/article\nhttps://another.com/report"
+                  rows={3}
+                  className="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border"
+                />
+                <p className="text-xs text-slate-500">
+                  When enabled, the model will be restricted to these sources only. Invalid links will be removed from the result.
+                </p>
+              </div>
+            )}
+          </>
+        )}
 
         {/* Submit Button */}
         <button
@@ -201,7 +263,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, userS
               Generating...
             </>
           ) : (
-            'Generate Post'
+            isComments ? 'Generate Comment' : 'Generate Post'
           )}
         </button>
       </form>
