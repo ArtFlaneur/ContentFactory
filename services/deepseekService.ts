@@ -127,6 +127,36 @@ const extractLinks = (markdown: string): SourceLink[] => {
   return links;
 };
 
+const stripTrailingSlash = (raw: string) => raw.replace(/\/+$/, '');
+
+const isDisallowedSourceUrl = (raw: string) => {
+  try {
+    const u = new URL(raw);
+    const host = u.hostname.toLowerCase();
+
+    // Block obvious placeholder / demo domains and local hosts.
+    const blockedHosts = new Set([
+      'example.com',
+      'www.example.com',
+      'example.org',
+      'www.example.org',
+      'example.net',
+      'www.example.net',
+      'localhost',
+      '127.0.0.1',
+      '0.0.0.0'
+    ]);
+    if (blockedHosts.has(host)) return true;
+
+    // Some models emit `*.example.com`.
+    if (host.endsWith('.example.com') || host.endsWith('.example.org') || host.endsWith('.example.net')) return true;
+
+    return false;
+  } catch {
+    return true;
+  }
+};
+
 const uniq = <T,>(arr: T[]) => Array.from(new Set(arr));
 
 const validateUrls = async (urls: string[]): Promise<ValidateApiResponse> => {
@@ -375,6 +405,9 @@ export const generateLinkedInPost = async (request: PostRequest): Promise<Genera
     : `Select the most relevant framework inside ${request.category} and mention it explicitly in the first line (e.g., "Framework Used: ...").`;
 
   const hasAllowedSources = Array.isArray(request.sourceUrls) && request.sourceUrls.length > 0;
+  const allowedSourcesSet = hasAllowedSources
+    ? new Set(request.sourceUrls!.slice(0, 20).map((u) => stripTrailingSlash(u.trim())).filter(Boolean))
+    : null;
   const allowedSourcesBlock = hasAllowedSources
     ? `\nALLOWED_SOURCES (you may ONLY cite these exact URLs):\n${request.sourceUrls
         .slice(0, 20)
@@ -576,7 +609,19 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources tha
     ...(youtubeContent ? extractLinks(youtubeContent).map((l) => l.url) : [])
   ]);
 
-  const { valid: validUrls, invalid: invalidUrls } = await validateUrls(allLinks);
+  // First pass: remove placeholder/demo URLs regardless of whether they "work".
+  const placeholderInvalid = allLinks.filter((u) => isDisallowedSourceUrl(u));
+
+  // If the user provided ALLOWED_SOURCES, treat any non-allowed URL as invalid even if it resolves.
+  const nonAllowedInvalid = allowedSourcesSet
+    ? allLinks.filter((u) => !allowedSourcesSet.has(stripTrailingSlash(u)))
+    : [];
+
+  const preInvalid = uniq([...placeholderInvalid, ...nonAllowedInvalid]);
+  const linksToValidate = allLinks.filter((u) => !preInvalid.includes(u));
+
+  const { valid: validUrls, invalid: invalidUrlsFromNetwork } = await validateUrls(linksToValidate);
+  const invalidUrls = uniq([...preInvalid, ...invalidUrlsFromNetwork]);
   const validSet = new Set(validUrls);
 
   if (invalidUrls.length > 0) {
@@ -587,7 +632,10 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources tha
     hooks = hooks.filter((h) => !invalidUrls.some((u) => h.includes(u)));
   }
 
-  const sourceLinks = extractLinks(linkedInContent).filter((l) => validSet.size === 0 ? true : validSet.has(l.url));
+  const sourceLinks = extractLinks(linkedInContent)
+    .filter((l) => !isDisallowedSourceUrl(l.url))
+    .filter((l) => (allowedSourcesSet ? allowedSourcesSet.has(stripTrailingSlash(l.url)) : true))
+    .filter((l) => (validSet.size === 0 ? true : validSet.has(l.url)));
 
   return {
     title: `${request.category}: ${request.topic}`,
