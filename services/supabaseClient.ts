@@ -1,18 +1,11 @@
-/// <reference path="../vite-env.d.ts" />
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-import { createClient } from '@supabase/supabase-js';
+type SupabaseBrowserClient = SupabaseClient<any>;
 
-declare global {
-  interface ImportMeta {
-    readonly env: Record<string, any>;
-  }
-}
-
-// These environment variables need to be set in your .env.local file
-const meta: any = import.meta;
-const env = meta?.env as Record<string, string | undefined> | undefined;
-const supabaseUrl = env?.VITE_SUPABASE_URL;
-const supabaseAnonKey = env?.VITE_SUPABASE_ANON_KEY;
+// These environment variables must be set at build/dev-server start time.
+// NOTE: Vite only exposes variables prefixed with VITE_ to the client.
+const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL as string | undefined;
+const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
@@ -79,12 +72,12 @@ const authStorage = (() => {
 })();
 
 if (!isSupabaseConfigured) {
-  console.warn('Missing Supabase environment variables. Database features will not work.');
+  console.warn('Missing Supabase environment variables. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, then restart the dev server / rebuild.');
 }
 
 const makeUnconfiguredSupabaseStub = () => {
   const fail = () => {
-    throw new Error('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+    throw new Error('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, then restart the dev server / rebuild.');
   };
 
   return {
@@ -105,7 +98,7 @@ const makeUnconfiguredSupabaseStub = () => {
   } as any;
 };
 
-export const supabase = isSupabaseConfigured
+export const supabase: SupabaseBrowserClient = isSupabaseConfigured
   ? createClient(supabaseUrl as string, supabaseAnonKey as string, {
       auth: {
         persistSession: true,
@@ -114,4 +107,4 @@ export const supabase = isSupabaseConfigured
         storage: authStorage
       }
     })
-  : makeUnconfiguredSupabaseStub();
+  : (makeUnconfiguredSupabaseStub() as SupabaseBrowserClient);

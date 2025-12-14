@@ -3,12 +3,12 @@ import Stripe from 'stripe';
 
 // Note: These keys must be set in Vercel Environment Variables
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-01-27.acacia', // Use latest API version
+  apiVersion: '2025-11-17.clover',
 });
 
 // We need the SERVICE_ROLE_KEY to bypass RLS and update user profiles from the server
 const supabaseAdmin = createClient(
-  process.env.VITE_SUPABASE_URL || '',
+  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
   process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 );
 

@@ -85,12 +85,13 @@ export const userService = {
   },
 
   async updateSettings(userId: string, settings: UserSettings) {
+    const { isPro: _isPro, ...settingsToSave } = settings as UserSettings & { isPro?: boolean };
     const { error } = await supabase
       .from('profiles')
       .upsert(
         {
           id: userId,
-          settings,
+          settings: settingsToSave,
           onboarding_completed: true,
           updated_at: new Date().toISOString(),
         },

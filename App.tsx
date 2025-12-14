@@ -7,6 +7,7 @@ import { PostRequest, GeneratedPost as GeneratedPostType, UserSettings } from '.
 import { generateLinkedInPost } from './services/deepseekService';
 import { userService } from './services/userService';
 import { supabase } from './services/supabaseClient';
+import { storage } from './services/storage';
 import { Factory, Settings, Zap } from 'lucide-react';
 
 declare const __HAS_DEEPSEEK_KEY__: boolean;
@@ -22,10 +23,13 @@ const Footer = () => (
 const App: React.FC = () => {
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [isPro, setIsPro] = useState(false);
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isAuthInitializing, setIsAuthInitializing] = useState(true);
   const hasSyncedGuestForUserRef = React.useRef<string | null>(null);
+  const hydrationKeyRef = React.useRef<string | null>(null);
+  const hydrationInFlightRef = React.useRef<Promise<void> | null>(null);
 
   const withTimeout = async <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
     let timeoutId: number | undefined;
@@ -44,7 +48,7 @@ const App: React.FC = () => {
   // Initialize generation count from localStorage for guests, or 0
   const [generationCount, setGenerationCount] = useState(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('guest_generation_count');
+      const saved = storage.getItem('guest_generation_count');
       return saved ? parseInt(saved, 10) : 0;
     }
     return 0;
@@ -56,173 +60,146 @@ const App: React.FC = () => {
 
   const FREE_LIMIT = 3;
 
-  // Load user profile on startup
+  // Hydrate user session + profile on startup and on auth changes.
   React.useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          setUserId(session.user.id);
+    let cancelled = false;
 
-          // Ensure a profile row exists (older accounts may not have one)
-          await userService.ensureProfile(session.user.id, session.user.email || undefined);
+    const hydrate = async (session: any, reason: string) => {
+      const uid = session?.user?.id || null;
+      const key = uid ? `${uid}` : 'anon';
+
+      // Deduplicate back-to-back INITIAL_SESSION + BOOTSTRAP / SIGNED_IN
+      const compositeKey = `${reason}:${key}`;
+      if (hydrationKeyRef.current === compositeKey) return;
+      hydrationKeyRef.current = compositeKey;
+
+      // Ensure only one hydration runs at a time.
+      if (hydrationInFlightRef.current) {
+        await hydrationInFlightRef.current;
+        if (cancelled) return;
+      }
+
+      hydrationInFlightRef.current = (async () => {
+        try {
+          if (!uid) {
+            setUserId(null);
+            setUserSettings(null);
+            setIsPro(false);
+            hasSyncedGuestForUserRef.current = null;
+
+            const saved = storage.getItem('guest_generation_count');
+            setGenerationCount(saved ? parseInt(saved, 10) : 0);
+            return;
+          }
+
+          setUserId(uid);
+          await userService.ensureProfile(uid, session?.user?.email || undefined);
+
+          // Sync guest generations first (so DB count reflects them on refresh).
+          const guestCount = parseInt(storage.getItem('guest_generation_count') || '0', 10);
+          const shouldSyncGuest =
+            guestCount > 0 &&
+            hasSyncedGuestForUserRef.current !== uid;
+
+          if (shouldSyncGuest) {
+            hasSyncedGuestForUserRef.current = uid;
+            const success = await userService.syncGuestGenerations(uid, guestCount);
+            if (success) {
+              storage.removeItem('guest_generation_count');
+            } else {
+              // Allow retry later in this session
+              hasSyncedGuestForUserRef.current = null;
+            }
+          }
 
           const [profile, dbGenCount] = await Promise.all([
-            userService.getProfile(session.user.id),
-            userService.getGenerationCount(session.user.id)
+            userService.getProfile(uid),
+            userService.getGenerationCount(uid)
           ]);
 
-          const localUserCount = parseInt(localStorage.getItem(getUserGenerationKey(session.user.id)) || '0', 10);
-          const dbCount = (dbGenCount ?? profile?.generationCount ?? 0) as number;
-          setGenerationCount(Math.max(dbCount, localUserCount));
-
-          if (profile) {
-            if (profile.onboardingCompleted) {
-              // Prefer DB settings, but allow a cached fallback (helps when settings were not persisted correctly)
-              let effectiveSettings = profile.settings;
-              try {
-                const cached = localStorage.getItem(`user_settings_${session.user.id}`);
-                if (cached) {
-                  const parsed = JSON.parse(cached) as UserSettings;
-                  // If DB settings are effectively empty, prefer cached.
-                  if (!effectiveSettings?.industry && parsed) effectiveSettings = parsed;
-                }
-              } catch {
-                // ignore
-              }
-
-              setUserSettings(effectiveSettings);
-
-              // Cache what we ended up using
-              try {
-                localStorage.setItem(`user_settings_${session.user.id}`, JSON.stringify(effectiveSettings));
-              } catch {
-                // ignore
-              }
-            } else {
-              setUserSettings(null);
-            }
-
-            // If user is Pro in DB, update local state
-            if (profile.isPro && profile.settings) {
-              setUserSettings(prev => prev ? { ...prev, isPro: true } : null);
-            }
-          } else if (dbGenCount === null) {
+          if (dbGenCount === null && !profile) {
             setError('Could not load your profile/usage from Supabase. Check RLS SELECT policies on the profiles table.');
           }
+
+          setIsPro(Boolean(profile?.isPro));
+
+          const localUserCount = parseInt(storage.getItem(getUserGenerationKey(uid)) || '0', 10);
+          const dbCount = (dbGenCount ?? profile?.generationCount ?? 0) as number;
+          const effectiveCount = Math.max(dbCount, localUserCount);
+          setGenerationCount(effectiveCount);
+
+          if (profile?.onboardingCompleted) {
+            let effectiveSettings = profile.settings;
+            try {
+              const cached = storage.getItem(`user_settings_${uid}`);
+              if (cached) {
+                const parsed = JSON.parse(cached) as UserSettings;
+                if (!effectiveSettings?.industry && parsed) effectiveSettings = parsed;
+              }
+            } catch {
+              // ignore
+            }
+
+            setUserSettings(effectiveSettings);
+            try {
+              storage.setItem(`user_settings_${uid}`, JSON.stringify(effectiveSettings));
+            } catch {
+              // ignore
+            }
+          } else {
+            setUserSettings(null);
+          }
+
+          // If local backup is ahead of DB, reconcile the delta (covers failed RPC or offline usage)
+          if (localUserCount > dbCount) {
+            const delta = localUserCount - dbCount;
+            const reconciled = await userService.addGenerations(uid, delta);
+            if (reconciled) {
+              const refreshed = await userService.getProfile(uid);
+              const newDbCount = refreshed?.generationCount || localUserCount;
+              setGenerationCount(Math.max(newDbCount, localUserCount));
+            }
+          }
+        } catch (err) {
+          console.error('Hydration failed:', err);
+        } finally {
+          setIsAuthInitializing(false);
         }
-      } finally {
-        setIsAuthInitializing(false);
-      }
+      })();
+
+      await hydrationInFlightRef.current;
+      hydrationInFlightRef.current = null;
     };
 
-    loadUser();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Ignore the initial event if getSession() already hydrated.
+      void hydrate(session, event);
+    });
+
+    // Bootstrap once on mount.
+    void (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!cancelled) await hydrate(session, 'BOOTSTRAP');
+      } catch {
+        if (!cancelled) setIsAuthInitializing(false);
+      }
+    })();
 
     // Fallback: don't get stuck on Loading if Supabase calls stall
     const initTimeout = window.setTimeout(() => {
       setIsAuthInitializing(false);
     }, 5000);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      try {
-        if (session?.user) {
-          setUserId(session.user.id);
-
-          // Ensure a profile row exists (older accounts may not have one)
-          await userService.ensureProfile(session.user.id, session.user.email || undefined);
-          
-          // Check for guest generations to sync
-          const guestCount = parseInt(localStorage.getItem('guest_generation_count') || '0', 10);
-
-          // Prevent double-sync when Supabase fires SIGNED_IN and INITIAL_SESSION back-to-back
-          const shouldSyncGuest =
-            guestCount > 0 &&
-            (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') &&
-            hasSyncedGuestForUserRef.current !== session.user.id;
-
-          if (shouldSyncGuest) {
-            hasSyncedGuestForUserRef.current = session.user.id;
-            console.log(`Syncing ${guestCount} guest generations to user ${session.user.id}...`);
-
-            const success = await userService.syncGuestGenerations(session.user.id, guestCount);
-            if (success) {
-              console.log('Guest generations synced successfully.');
-              localStorage.removeItem('guest_generation_count');
-            } else {
-              console.error('Failed to sync guest generations. Keeping local count.');
-              // Allow retry later in this session
-              hasSyncedGuestForUserRef.current = null;
-            }
-          }
-
-          // Load profile + reconcile with per-user local backup
-          const [profile, dbGenCount] = await Promise.all([
-            userService.getProfile(session.user.id),
-            userService.getGenerationCount(session.user.id)
-          ]);
-          const localUserCount = parseInt(localStorage.getItem(getUserGenerationKey(session.user.id)) || '0', 10);
-          const dbCount = (dbGenCount ?? profile?.generationCount ?? 0) as number;
-          const effectiveCount = Math.max(dbCount, localUserCount);
-          setGenerationCount(effectiveCount);
-
-          if (profile) {
-            if (profile.onboardingCompleted) {
-              let effectiveSettings = profile.settings;
-              try {
-                const cached = localStorage.getItem(`user_settings_${session.user.id}`);
-                if (cached) {
-                  const parsed = JSON.parse(cached) as UserSettings;
-                  if (!effectiveSettings?.industry && parsed) effectiveSettings = parsed;
-                }
-              } catch {
-                // ignore
-              }
-
-              setUserSettings(effectiveSettings);
-              try {
-                localStorage.setItem(`user_settings_${session.user.id}`, JSON.stringify(effectiveSettings));
-              } catch {
-                // ignore
-              }
-            } else {
-              setUserSettings(null);
-            }
-          } else if (dbGenCount === null) {
-            setError('Could not load your profile/usage from Supabase. Check RLS SELECT policies on the profiles table.');
-          }
-
-          // If local backup is ahead of DB, reconcile the delta (covers failed RPC or offline usage)
-          if (localUserCount > dbCount) {
-            const delta = localUserCount - dbCount;
-            const reconciled = await userService.addGenerations(session.user.id, delta);
-            if (reconciled) {
-              const refreshed = await userService.getProfile(session.user.id);
-              const newDbCount = refreshed?.generationCount || localUserCount;
-              setGenerationCount(Math.max(newDbCount, localUserCount));
-            }
-          }
-        } else {
-          // User logged out
-          setUserId(null);
-          setUserSettings(null);
-          hasSyncedGuestForUserRef.current = null;
-          // Revert to guest count from local storage
-          const saved = localStorage.getItem('guest_generation_count');
-          setGenerationCount(saved ? parseInt(saved, 10) : 0);
-        }
-      } catch (err) {
-        console.error('Auth state change handling failed:', err);
-      } finally {
-        // After first auth callback (or error), we can render the app normally
-        setIsAuthInitializing(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(initTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleGenerate = async (request: PostRequest) => {
-    if (generationCount >= FREE_LIMIT && !userSettings?.isPro) {
+    if (generationCount >= FREE_LIMIT && !isPro) {
       setIsPaymentModalOpen(true);
       return;
     }
@@ -250,10 +227,10 @@ const App: React.FC = () => {
         const newCount = prev + 1;
         // If guest, save to local storage
         if (!userId) {
-          localStorage.setItem('guest_generation_count', newCount.toString());
+          storage.setItem('guest_generation_count', newCount.toString());
         } else {
           // Logged-in backup (prevents count “reset” if DB increment fails)
-          localStorage.setItem(getUserGenerationKey(userId), newCount.toString());
+          storage.setItem(getUserGenerationKey(userId), newCount.toString());
         }
         return newCount;
       });
@@ -267,8 +244,8 @@ const App: React.FC = () => {
           if (!effectiveUserId) return;
 
           // Ensure local backup is keyed to the actual authed user
-          const currentLocal = parseInt(localStorage.getItem(getUserGenerationKey(effectiveUserId)) || '0', 10);
-          localStorage.setItem(getUserGenerationKey(effectiveUserId), Math.max(currentLocal, generationCount + 1).toString());
+          const currentLocal = parseInt(storage.getItem(getUserGenerationKey(effectiveUserId)) || '0', 10);
+          storage.setItem(getUserGenerationKey(effectiveUserId), Math.max(currentLocal, generationCount + 1).toString());
 
           const ok = await withTimeout(userService.incrementGenerationCount(effectiveUserId), 4000, 'userService.incrementGenerationCount');
           if (!ok) {
@@ -297,6 +274,7 @@ const App: React.FC = () => {
       // Upgrade user
       userService.upgradeToPro(userId).then(() => {
         // Update local state
+        setIsPro(true);
         setUserSettings(prev => prev ? { ...prev, isPro: true } : null);
         // Clean URL
         window.history.replaceState({}, '', window.location.pathname);
@@ -350,14 +328,14 @@ const App: React.FC = () => {
 
                 // Cache settings locally (helps avoid showing onboarding on refresh if DB settings are missing)
                 try {
-                  localStorage.setItem(`user_settings_${session.user.id}`, JSON.stringify(newSettings));
+                  storage.setItem(`user_settings_${session.user.id}`, JSON.stringify(newSettings));
                 } catch {
                   // ignore
                 }
 
                 // Restore generation count from DB/local backup after onboarding save
                 const dbGenCount = await userService.getGenerationCount(session.user.id);
-                const localUserCount = parseInt(localStorage.getItem(getUserGenerationKey(session.user.id)) || '0', 10);
+                const localUserCount = parseInt(storage.getItem(getUserGenerationKey(session.user.id)) || '0', 10);
                 if (typeof dbGenCount === 'number') {
                   setGenerationCount(Math.max(dbGenCount, localUserCount));
                 } else {
@@ -398,7 +376,7 @@ const App: React.FC = () => {
               Factory Settings
             </button>
             
-            {!userSettings?.isPro && (
+            {!isPro && (
                 <button 
                 onClick={() => setIsPaymentModalOpen(true)}
                 className="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-full transition-colors flex items-center text-xs font-bold"
@@ -409,7 +387,7 @@ const App: React.FC = () => {
             )}
 
             <div className="text-xs font-medium px-3 py-1 bg-slate-100 rounded-full text-slate-500">
-              {userSettings?.isPro ? 'Unlimited Pro Access' : `${Math.max(0, FREE_LIMIT - generationCount)} credits left`}
+              {isPro ? 'Unlimited Pro Access' : `${Math.max(0, FREE_LIMIT - generationCount)} credits left`}
             </div>
           </div>
         </div>

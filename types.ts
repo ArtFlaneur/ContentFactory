@@ -28,6 +28,7 @@ export enum PostGoal {
 }
 
 export enum PostTone {
+  PROFESSIONAL = "Professional",
   RANT = "🔥 Rant / Critical",
   EMPATHIC = "🤝 Empathic / Supportive",
   ANALYTICAL = "🧠 Analytical / Data-Driven",
