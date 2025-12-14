@@ -76,9 +76,11 @@ if (!isSupabaseConfigured) {
 }
 
 const makeUnconfiguredSupabaseStub = () => {
+  const message = 'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, then restart the dev server / rebuild.';
   const fail = () => {
-    throw new Error('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, then restart the dev server / rebuild.');
+    throw new Error(message);
   };
+  const failError = () => new Error(message);
 
   return {
     auth: {
@@ -87,7 +89,8 @@ const makeUnconfiguredSupabaseStub = () => {
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
       signInWithPassword: async () => ({ data: { user: null, session: null }, error: fail() }),
       signUp: async () => ({ data: { user: null, session: null }, error: fail() }),
-      resetPasswordForEmail: async () => ({ data: {}, error: fail() })
+      resetPasswordForEmail: async () => ({ data: {}, error: fail() }),
+      signOut: async () => ({ error: failError() })
     },
     from: () => ({
       select: () => ({ eq: () => ({ single: async () => fail() }) }),

@@ -9,7 +9,7 @@ import { generateLinkedInPost } from './services/deepseekService';
 import { userService } from './services/userService';
 import { supabase } from './services/supabaseClient';
 import { storage } from './services/storage';
-import { Factory, Settings, Zap, Clock } from 'lucide-react';
+import { Factory, Settings, Zap, Clock, LogOut } from 'lucide-react';
 
 declare const __HAS_DEEPSEEK_KEY__: boolean;
 const hasConfiguredApiKey = __HAS_DEEPSEEK_KEY__;
@@ -28,6 +28,7 @@ const App: React.FC = () => {
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isAuthInitializing, setIsAuthInitializing] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const hasSyncedGuestForUserRef = React.useRef<string | null>(null);
   const hasAppliedPendingOnboardingForUserRef = React.useRef<string | null>(null);
   const hydrationKeyRef = React.useRef<string | null>(null);
@@ -147,7 +148,10 @@ const App: React.FC = () => {
           }
 
           setUserId(uid);
-          await userService.ensureProfile(uid, session?.user?.email || undefined);
+          const ensured = await userService.ensureProfile(uid, session?.user?.email || undefined);
+          if (!ensured) {
+            setError('Could not create/update your profile in Supabase. Check RLS INSERT/UPDATE policies on the profiles table.');
+          }
 
           // Sync guest generations first (so DB count reflects them on refresh).
           const guestCount = parseInt(storage.getItem('guest_generation_count') || '0', 10);
@@ -175,24 +179,65 @@ const App: React.FC = () => {
           // so we can't write settings to `profiles` until the user confirms and logs in.
           // In that case we store onboarding settings locally and apply them here once signed in.
           if (!profile?.onboardingCompleted && hasAppliedPendingOnboardingForUserRef.current !== uid) {
-            const email = session?.user?.email;
-            if (email) {
-              const key = `pending_onboarding_settings_${encodeURIComponent(email)}`;
-              const pendingRaw = storage.getItem(key);
-              if (pendingRaw) {
-                try {
-                  const pending = JSON.parse(pendingRaw) as UserSettings;
-                  const isMeaningful = Boolean(pending?.industry || pending?.role || pending?.country || pending?.city);
-                  if (isMeaningful) {
+            // First preference: settings saved server-side in auth user metadata at sign-up time.
+            // This survives email confirmation flows and works even if localStorage is cleared.
+            const metadataSettings = session?.user?.user_metadata?.cf_onboarding_settings;
+            if (metadataSettings && typeof metadataSettings === 'object') {
+              try {
+                const pending = metadataSettings as UserSettings;
+                const isMeaningful = Boolean(pending?.industry || pending?.role || pending?.country || pending?.city);
+                if (isMeaningful) {
+                  try {
                     await userService.updateSettings(uid, pending);
                     hasAppliedPendingOnboardingForUserRef.current = uid;
-                    storage.removeItem(key);
+                  } catch (applyErr) {
+                    console.error('Failed to apply onboarding settings from user metadata:', applyErr);
+                    setError('Could not save your onboarding settings to Supabase. Check RLS UPDATE policy on the profiles table.');
                   }
-                } catch {
-                  // If parsing fails, drop the cached value to avoid retry loops.
-                  storage.removeItem(key);
                 }
+              } catch {
+                // ignore
               }
+
+              // If we successfully applied settings, skip localStorage fallback.
+              if (hasAppliedPendingOnboardingForUserRef.current === uid) {
+                // continue hydration
+              } else {
+                // fall through to localStorage keys
+              }
+            }
+
+            const emailRaw = session?.user?.email;
+            const emailTrimmed = typeof emailRaw === 'string' ? emailRaw.trim() : '';
+            const emailNormalized = emailTrimmed.toLowerCase();
+
+            const candidateKeys = [
+              emailNormalized ? `pending_onboarding_settings_${encodeURIComponent(emailNormalized)}` : null,
+              emailTrimmed ? `pending_onboarding_settings_${encodeURIComponent(emailTrimmed)}` : null,
+            ].filter(Boolean) as string[];
+
+            for (const key of candidateKeys) {
+              const pendingRaw = storage.getItem(key);
+              if (!pendingRaw) continue;
+              try {
+                const pending = JSON.parse(pendingRaw) as UserSettings;
+                const isMeaningful = Boolean(pending?.industry || pending?.role || pending?.country || pending?.city);
+                if (isMeaningful) {
+                    try {
+                      await userService.updateSettings(uid, pending);
+                      hasAppliedPendingOnboardingForUserRef.current = uid;
+                    } catch (applyErr) {
+                      console.error('Failed to apply pending onboarding settings:', applyErr);
+                      setError('Could not save your onboarding settings to Supabase. Check RLS UPDATE policy on the profiles table.');
+                    }
+                }
+              } catch {
+                // ignore
+              } finally {
+                // Remove whatever key we found to avoid retry loops.
+                storage.removeItem(key);
+              }
+              break;
             }
           }
 
@@ -246,6 +291,7 @@ const App: React.FC = () => {
           }
         } catch (err) {
           console.error('Hydration failed:', err);
+          setError((err as any)?.message || 'Could not load your account from Supabase.');
         } finally {
           setIsAuthInitializing(false);
         }
@@ -263,6 +309,22 @@ const App: React.FC = () => {
     // Bootstrap once on mount.
     void (async () => {
       try {
+        // If Supabase redirected back with a PKCE code (common for email confirmation links),
+        // exchange it for a session explicitly to avoid landing in a "logged out" state.
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+        if (code) {
+          try {
+            await supabase.auth.exchangeCodeForSession(window.location.href);
+          } catch (exchangeErr) {
+            console.error('Failed to exchange auth code for session:', exchangeErr);
+          } finally {
+            params.delete('code');
+            const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}${window.location.hash || ''}`;
+            window.history.replaceState({}, '', next);
+          }
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
         if (!cancelled) await hydrate(session, 'BOOTSTRAP');
       } catch {
@@ -281,6 +343,22 @@ const App: React.FC = () => {
       subscription.unsubscribe();
     };
   }, []);
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    try {
+      setIsEditingSettings(false);
+      setIsPaymentModalOpen(false);
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (err: any) {
+      console.error('Logout failed:', err);
+      setError(err?.message || 'Logout failed. Please try again.');
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   const handleGenerate = async (request: PostRequest) => {
     if (generationCount >= FREE_LIMIT && !isPro) {
@@ -487,9 +565,9 @@ const App: React.FC = () => {
     );
   }
 
-  // Show onboarding only for guests (not logged in), or when explicitly editing settings.
-  // Logged-in users should never be forced back into onboarding on refresh.
-  if (!userId || isEditingSettings) {
+  // Show onboarding for guests, explicit editing, or logged-in users who still haven't completed onboarding.
+  // This prevents a "stuck" state where settings failed to persist and the user can never complete onboarding.
+  if (!userId || isEditingSettings || !userSettings) {
     return (
       <div className="min-h-screen flex flex-col bg-slate-50">
         <div className="flex-grow flex items-center justify-center">
@@ -506,26 +584,31 @@ const App: React.FC = () => {
               setError(null);
               
               // If we have a user ID (either from existing session or just signed up in Wizard), save settings
-              const { data: { session } } = await supabase.auth.getSession();
-              if (session?.user) {
-                await userService.updateSettings(session.user.id, newSettings);
-                setUserId(session.user.id);
+              try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session?.user) {
+                  await userService.updateSettings(session.user.id, newSettings);
+                  setUserId(session.user.id);
 
-                // Cache settings locally (helps avoid showing onboarding on refresh if DB settings are missing)
-                try {
-                  storage.setItem(`user_settings_${session.user.id}`, JSON.stringify(newSettings));
-                } catch {
-                  // ignore
-                }
+                  // Cache settings locally (helps avoid showing onboarding on refresh if DB settings are missing)
+                  try {
+                    storage.setItem(`user_settings_${session.user.id}`, JSON.stringify(newSettings));
+                  } catch {
+                    // ignore
+                  }
 
-                // Restore generation count from DB/local backup after onboarding save
-                const dbGenCount = await userService.getGenerationCount(session.user.id);
-                const localUserCount = parseInt(storage.getItem(getUserGenerationKey(session.user.id)) || '0', 10);
-                if (typeof dbGenCount === 'number') {
-                  setGenerationCount(Math.max(dbGenCount, localUserCount));
-                } else {
-                  setGenerationCount(localUserCount);
+                  // Restore generation count from DB/local backup after onboarding save
+                  const dbGenCount = await userService.getGenerationCount(session.user.id);
+                  const localUserCount = parseInt(storage.getItem(getUserGenerationKey(session.user.id)) || '0', 10);
+                  if (typeof dbGenCount === 'number') {
+                    setGenerationCount(Math.max(dbGenCount, localUserCount));
+                  } else {
+                    setGenerationCount(localUserCount);
+                  }
                 }
+              } catch (saveErr: any) {
+                console.error('Failed to save onboarding settings:', saveErr);
+                setError(saveErr?.message || 'Could not save onboarding settings. Check your Supabase policies.');
               }
             }} 
             initialSettings={userSettings}
@@ -544,21 +627,23 @@ const App: React.FC = () => {
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 sm:space-x-3">
             <div className="bg-indigo-600 p-2 rounded-lg">
                 <Factory className="text-white h-5 w-5" />
             </div>
-            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 to-violet-700">
-              Content Factory
+            <h1 className="text-lg sm:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 to-violet-700 truncate max-w-[10rem] sm:max-w-none">
+              Make Content
             </h1>
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 sm:space-x-4">
             <button 
               onClick={() => setIsEditingSettings(true)}
               className="text-slate-500 hover:text-indigo-600 transition-colors flex items-center text-sm font-medium"
+              aria-label="Factory Settings"
             >
-              <Settings className="w-4 h-4 mr-1.5" />
-              Factory Settings
+              <Settings className="w-4 h-4 sm:mr-1.5" />
+              <span className="sr-only">Factory Settings</span>
+              <span className="hidden sm:inline">Factory Settings</span>
             </button>
 
             <button
@@ -566,24 +651,41 @@ const App: React.FC = () => {
               className={`transition-colors flex items-center text-sm font-medium ${
                 activeTab === 'history' ? 'text-indigo-600' : 'text-slate-500 hover:text-indigo-600'
               }`}
+              aria-label="History"
             >
-              <Clock className="w-4 h-4 mr-1.5" />
-              History
+              <Clock className="w-4 h-4 sm:mr-1.5" />
+              <span className="sr-only">History</span>
+              <span className="hidden sm:inline">History</span>
             </button>
             
             {!isPro && (
                 <button 
                 onClick={() => setIsPaymentModalOpen(true)}
                 className="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-full transition-colors flex items-center text-xs font-bold"
+                aria-label="Upgrade"
                 >
-                <Zap className="w-3 h-3 mr-1 fill-current" />
-                Upgrade
+                <Zap className="w-3 h-3 sm:mr-1 fill-current" />
+                <span className="sr-only">Upgrade</span>
+                <span className="hidden sm:inline">Upgrade</span>
                 </button>
             )}
 
-            <div className="text-xs font-medium px-3 py-1 bg-slate-100 rounded-full text-slate-500">
+            <div className="hidden sm:block text-xs font-medium px-3 py-1 bg-slate-100 rounded-full text-slate-500">
               {isPro ? 'Unlimited Pro Access' : `${Math.max(0, FREE_LIMIT - generationCount)} credits left`}
             </div>
+
+            {userId && (
+              <button
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="text-slate-500 hover:text-indigo-600 transition-colors flex items-center text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Log Out"
+              >
+                <LogOut className="w-4 h-4 sm:mr-1.5" />
+                <span className="sr-only">Log Out</span>
+                <span className="hidden sm:inline">Log Out</span>
+              </button>
+            )}
           </div>
         </div>
       </header>

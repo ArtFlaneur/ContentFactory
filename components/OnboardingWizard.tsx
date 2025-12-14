@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserSettings, PostTone } from '../types';
-import { Factory, Users, Share2, ArrowRight, Check, Lock } from 'lucide-react';
+import { Factory, Users, Share2, ArrowRight, Check, Lock, LogOut } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
 import { getAppBaseUrl } from '../services/appUrl';
 import { storage } from '../services/storage';
@@ -26,6 +26,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [isLoginMode, setIsLoginMode] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const [settings, setSettings] = useState<Partial<UserSettings>>(initialSettings || {
     industry: '',
@@ -59,19 +60,38 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
       setAuthError(null);
       
       try {
+        const emailTrimmed = email.trim();
+        const emailNormalized = emailTrimmed.toLowerCase();
+
+        if (!emailTrimmed) {
+          setAuthError('Please enter your email address.');
+          return;
+        }
+        if (!password) {
+          setAuthError('Please enter a password.');
+          return;
+        }
+
         let authResponse;
         
         if (isLoginMode) {
           authResponse = await supabase.auth.signInWithPassword({
-            email,
+            email: emailTrimmed,
             password,
           });
         } else {
           const emailRedirectTo = getAppBaseUrl();
           authResponse = await supabase.auth.signUp({
-            email,
+            email: emailTrimmed,
             password,
-            options: emailRedirectTo ? { emailRedirectTo } : undefined,
+            options: {
+              ...(emailRedirectTo ? { emailRedirectTo } : {}),
+              // Persist onboarding settings server-side so they survive email confirmation flows
+              // (no session) and cross-device logins.
+              data: {
+                cf_onboarding_settings: settings
+              }
+            },
           });
         }
 
@@ -92,8 +112,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                 // Store the onboarding settings locally so we can apply them after the user confirms
                 // their email and logs in.
                 try {
-                  const key = `pending_onboarding_settings_${encodeURIComponent(email)}`;
-                  storage.setItem(key, JSON.stringify(settings));
+                  const payload = JSON.stringify(settings);
+                  const normalizedKey = `pending_onboarding_settings_${encodeURIComponent(emailNormalized)}`;
+                  const legacyKey = `pending_onboarding_settings_${encodeURIComponent(emailTrimmed)}`;
+                  storage.setItem(normalizedKey, payload);
+                  storage.setItem(legacyKey, payload);
                 } catch {
                   // ignore
                 }
@@ -129,6 +152,20 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
     }
   };
 
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    setAuthError(null);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (err: any) {
+      setAuthError(err?.message || 'Logout failed.');
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full overflow-hidden flex flex-col md:flex-row min-h-[500px]">
@@ -138,7 +175,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
           <div>
             <div className="flex items-center space-x-2 mb-8">
               <Factory className="h-6 w-6" />
-              <span className="font-bold text-xl">Content Factory</span>
+              <span className="font-bold text-xl">Make Content</span>
             </div>
             <nav className="space-y-6">
               {STEPS.map((s) => (
@@ -162,6 +199,19 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
         {/* Main Content */}
         <div className="p-8 md:w-2/3 flex flex-col">
           <div className="flex-1">
+            {userId && (
+              <div className="flex justify-end mb-4">
+                <button
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                  className="text-slate-500 hover:text-indigo-600 transition-colors inline-flex items-center text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Log Out"
+                >
+                  <LogOut className="w-4 h-4 mr-1.5" />
+                  Log Out
+                </button>
+              </div>
+            )}
             {step === 1 && (
               <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
                 <div className="flex justify-between items-start">

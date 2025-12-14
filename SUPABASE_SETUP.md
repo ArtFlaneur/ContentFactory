@@ -26,14 +26,21 @@ create table profiles (
 -- See https://supabase.com/docs/guides/auth/row-level-security for more details.
 alter table profiles enable row level security;
 
-create policy "Public profiles are viewable by everyone." on profiles
-  for select using (true);
+-- The app only needs each user to read/update their own profile.
+drop policy if exists "Users can view own profile." on profiles;
+create policy "Users can view own profile." on profiles
+  for select using (auth.uid() = id);
 
 create policy "Users can insert their own profile." on profiles
   for insert with check (auth.uid() = id);
 
+-- Important: `upsert` (INSERT ... ON CONFLICT DO UPDATE) requires both INSERT and UPDATE policies.
+-- Explicit WITH CHECK helps avoid confusing upsert failures.
+drop policy if exists "Users can update own profile." on profiles;
 create policy "Users can update own profile." on profiles
-  for update using (auth.uid() = id);
+  for update
+  using (auth.uid() = id)
+  with check (auth.uid() = id);
 
 -- This trigger automatically creates a profile entry when a new user signs up via Auth
 create function public.handle_new_user() 
@@ -81,6 +88,25 @@ create policy "Users can delete own generated posts" on public.generated_posts
 -- (Optional) allow updates if you later add rename/tags
 create policy "Users can update own generated posts" on public.generated_posts
   for update using (auth.uid() = user_id);
+```
+
+### Already have a `profiles` table?
+
+If you created `profiles` earlier (for example with only `onboarding_completed`) the app will not be able to save onboarding data, because it stores onboarding answers in `profiles.settings` (JSON).
+
+Run this migration to add the missing columns safely:
+
+```sql
+alter table public.profiles
+  add column if not exists email text,
+  add column if not exists is_pro boolean default false,
+  add column if not exists generation_count integer default 0,
+  add column if not exists settings jsonb default '{}'::jsonb,
+  add column if not exists updated_at timestamp with time zone;
+
+-- Ensure the onboarding flag exists (in case your table predates it)
+alter table public.profiles
+  add column if not exists onboarding_completed boolean default false;
 ```
 
 ## 3. Get API Keys
