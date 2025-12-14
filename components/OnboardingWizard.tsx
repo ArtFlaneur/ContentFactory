@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { UserSettings, PostTone } from '../types';
 import { Factory, Users, Share2, ArrowRight, Check, Lock } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
+import { getAppBaseUrl } from '../services/appUrl';
 
 interface OnboardingWizardProps {
   onComplete: (settings: UserSettings) => void;
@@ -65,9 +66,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
             password,
           });
         } else {
+          const emailRedirectTo = getAppBaseUrl();
           authResponse = await supabase.auth.signUp({
             email,
             password,
+            options: emailRedirectTo ? { emailRedirectTo } : undefined,
           });
         }
 
@@ -105,8 +108,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
       return;
     }
     try {
+      const redirectTo = getAppBaseUrl();
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin,
+        redirectTo: redirectTo || window.location.origin,
       });
       if (error) throw error;
       alert("Password reset instructions sent to your email!");

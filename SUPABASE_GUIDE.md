@@ -5,12 +5,14 @@
 To ensure your authentication flows work correctly and securely in production:
 
 1.  Go to **Authentication** -> **URL Configuration** in your Supabase Dashboard.
-2.  **Site URL**: Set this to your production URL (e.g., `https://content-factory.vercel.app`).
+2.  **Site URL**: Set this to your production URL (e.g., `https://content-factory-kohl.vercel.app`).
     *   *For local development, this is usually `http://localhost:5173`.*
 3.  **Redirect URLs**: Add the following:
     *   `http://localhost:5173/**`
-    *   `https://your-production-domain.com/**`
-    *   `https://your-production-domain.com/auth/callback`
+  *   `https://content-factory-kohl.vercel.app/**`
+
+Tip: this app also supports an optional `VITE_SITE_URL` env var to force the redirect base used in auth emails.
+Set `VITE_SITE_URL=https://content-factory-kohl.vercel.app` in Vercel Environment Variables.
 
 ## 2. Email Templates
 
