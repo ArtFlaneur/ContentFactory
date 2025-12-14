@@ -3,6 +3,7 @@ import { UserSettings, PostTone } from '../types';
 import { Factory, Users, Share2, ArrowRight, Check, Lock } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
 import { getAppBaseUrl } from '../services/appUrl';
+import { storage } from '../services/storage';
 
 interface OnboardingWizardProps {
   onComplete: (settings: UserSettings) => void;
@@ -87,6 +88,15 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
             // If email confirmation is enabled, Supabase may not return a session yet.
             // In that case, the user is not actually logged in and we should not proceed.
             if (!data.session) {
+                // Email confirmation flow: there is no session yet, so we can't write to `profiles`.
+                // Store the onboarding settings locally so we can apply them after the user confirms
+                // their email and logs in.
+                try {
+                  const key = `pending_onboarding_settings_${encodeURIComponent(email)}`;
+                  storage.setItem(key, JSON.stringify(settings));
+                } catch {
+                  // ignore
+                }
               setAuthError('Check your email to confirm your account, then log in to continue.');
               return;
             }

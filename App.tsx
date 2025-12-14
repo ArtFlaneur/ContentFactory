@@ -28,6 +28,7 @@ const App: React.FC = () => {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isAuthInitializing, setIsAuthInitializing] = useState(true);
   const hasSyncedGuestForUserRef = React.useRef<string | null>(null);
+  const hasAppliedPendingOnboardingForUserRef = React.useRef<string | null>(null);
   const hydrationKeyRef = React.useRef<string | null>(null);
   const hydrationInFlightRef = React.useRef<Promise<void> | null>(null);
 
@@ -117,19 +118,49 @@ const App: React.FC = () => {
             userService.getGenerationCount(uid)
           ]);
 
+          // If email confirmation is enabled, the initial signup happens without a session,
+          // so we can't write settings to `profiles` until the user confirms and logs in.
+          // In that case we store onboarding settings locally and apply them here once signed in.
+          if (!profile?.onboardingCompleted && hasAppliedPendingOnboardingForUserRef.current !== uid) {
+            const email = session?.user?.email;
+            if (email) {
+              const key = `pending_onboarding_settings_${encodeURIComponent(email)}`;
+              const pendingRaw = storage.getItem(key);
+              if (pendingRaw) {
+                try {
+                  const pending = JSON.parse(pendingRaw) as UserSettings;
+                  const isMeaningful = Boolean(pending?.industry || pending?.role || pending?.country || pending?.city);
+                  if (isMeaningful) {
+                    await userService.updateSettings(uid, pending);
+                    hasAppliedPendingOnboardingForUserRef.current = uid;
+                    storage.removeItem(key);
+                  }
+                } catch {
+                  // If parsing fails, drop the cached value to avoid retry loops.
+                  storage.removeItem(key);
+                }
+              }
+            }
+          }
+
           if (dbGenCount === null && !profile) {
             setError('Could not load your profile/usage from Supabase. Check RLS SELECT policies on the profiles table.');
           }
 
-          setIsPro(Boolean(profile?.isPro));
+          // If we applied pending onboarding settings, re-fetch to ensure we use the persisted copy.
+          const effectiveProfile = (hasAppliedPendingOnboardingForUserRef.current === uid)
+            ? (await userService.getProfile(uid))
+            : profile;
+
+          setIsPro(Boolean(effectiveProfile?.isPro));
 
           const localUserCount = parseInt(storage.getItem(getUserGenerationKey(uid)) || '0', 10);
-          const dbCount = (dbGenCount ?? profile?.generationCount ?? 0) as number;
+          const dbCount = (dbGenCount ?? effectiveProfile?.generationCount ?? 0) as number;
           const effectiveCount = Math.max(dbCount, localUserCount);
           setGenerationCount(effectiveCount);
 
-          if (profile?.onboardingCompleted) {
-            let effectiveSettings = profile.settings;
+          if (effectiveProfile?.onboardingCompleted) {
+            let effectiveSettings = effectiveProfile.settings;
             try {
               const cached = storage.getItem(`user_settings_${uid}`);
               if (cached) {
