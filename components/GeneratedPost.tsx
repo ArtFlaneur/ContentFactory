@@ -1,18 +1,20 @@
 import React from 'react';
 import { GeneratedPost as GeneratedPostType, UserSettings } from '../types';
-import { Copy, Check, RefreshCw, ExternalLink, Linkedin, Twitter, Send, Instagram, Youtube } from 'lucide-react';
+import { Copy, Check, RefreshCw, ExternalLink, Linkedin, Twitter, Send, Instagram, Youtube, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 
 interface GeneratedPostProps {
   post: GeneratedPostType | null;
+  isLoading?: boolean;
+  statusText?: string | null;
   onReset: () => void;
   userSettings?: UserSettings | null;
 }
 
 type Tab = 'linkedin' | 'twitter' | 'telegram' | 'instagram' | 'youtube';
 
-export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, onReset, userSettings }) => {
+export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, isLoading, statusText, onReset, userSettings }) => {
   const [copied, setCopied] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<Tab>('linkedin');
 
@@ -30,6 +32,22 @@ export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, onReset, use
   }, [visibleTabs, activeTab]);
 
   if (!post) {
+    if (isLoading) {
+      return (
+        <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-slate-600 border border-slate-200 rounded-xl bg-white p-8">
+          <div className="w-14 h-14 bg-indigo-50 rounded-full flex items-center justify-center mb-4 border border-indigo-100">
+            <Loader2 className="h-6 w-6 text-indigo-600 animate-spin" />
+          </div>
+          <p className="font-semibold text-slate-900">Generating your post…</p>
+          <p className="text-sm mt-1 text-slate-500 text-center">
+            {statusText || 'Working on structure and wording'}
+          </p>
+          <p className="text-xs mt-3 text-slate-400 text-center max-w-sm">
+            Keep this tab open. The result will appear here automatically.
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
         <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">

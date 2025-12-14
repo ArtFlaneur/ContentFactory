@@ -57,7 +57,9 @@ const App: React.FC = () => {
 
   const [currentPost, setCurrentPost] = useState<GeneratedPostType | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const generationStatusTimerRef = React.useRef<number | null>(null);
 
   const FREE_LIMIT = 3;
 
@@ -235,6 +237,45 @@ const App: React.FC = () => {
       return;
     }
 
+    // Show a visible progress/status in the output panel while waiting for the model.
+    if (generationStatusTimerRef.current) {
+      window.clearInterval(generationStatusTimerRef.current);
+      generationStatusTimerRef.current = null;
+    }
+
+    const statusSteps = request.includeNews
+      ? [
+          'Validating sources…',
+          'Fetching context…',
+          'Extracting key facts…',
+          'Building your outline…',
+          'Drafting the hook…',
+          'Writing the full post…',
+          'Tightening the CTA…',
+          'Formatting platform versions…',
+          'Running a quality pass…',
+          'Packaging the result…',
+          'Almost there…'
+        ]
+      : [
+          'Building your outline…',
+          'Drafting the hook…',
+          'Writing the full post…',
+          'Tightening transitions…',
+          'Tightening the CTA…',
+          'Formatting platform versions…',
+          'Running a quality pass…',
+          'Packaging the result…',
+          'Almost there…'
+        ];
+
+    setGenerationStatus(statusSteps[0]);
+    let stepIndex = 0;
+    generationStatusTimerRef.current = window.setInterval(() => {
+      stepIndex = Math.min(stepIndex + 1, statusSteps.length - 1);
+      setGenerationStatus(statusSteps[stepIndex]);
+    }, 2400);
+
     // Inject User Context from Onboarding
     const enrichedRequest = {
       ...request,
@@ -291,12 +332,24 @@ const App: React.FC = () => {
       setError(err.message || "Something went wrong generating the post.");
     } finally {
       setIsLoading(false);
+
+      if (generationStatusTimerRef.current) {
+        window.clearInterval(generationStatusTimerRef.current);
+        generationStatusTimerRef.current = null;
+      }
+      setGenerationStatus(null);
     }
   };
 
   const handleReset = () => {
       setCurrentPost(null);
       setError(null);
+
+      if (generationStatusTimerRef.current) {
+        window.clearInterval(generationStatusTimerRef.current);
+        generationStatusTimerRef.current = null;
+      }
+      setGenerationStatus(null);
   };
 
   // Check for payment success on mount
@@ -465,6 +518,8 @@ const App: React.FC = () => {
           <div className="lg:col-span-8 xl:col-span-8">
             <GeneratedPost 
               post={currentPost} 
+              isLoading={isLoading}
+              statusText={generationStatus}
               onReset={handleReset} 
               userSettings={userSettings}
             />
