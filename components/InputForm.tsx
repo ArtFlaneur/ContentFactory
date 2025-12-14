@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Audience, Category, PostRequest, PostGoal, PostTone, UserSettings } from '../types';
 import { AUDIENCE_OPTIONS, CATEGORY_OPTIONS, GOAL_OPTIONS, TONE_OPTIONS, FRAMEWORKS, FRAMEWORK_PRO_TIPS } from '../constants';
-import { Loader2, Info, Globe, Lightbulb } from 'lucide-react';
+import { Loader2, Info, Globe, Lightbulb, ChevronDown } from 'lucide-react';
 
 interface InputFormProps {
   onSubmit: (data: PostRequest) => void;
@@ -83,64 +83,76 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, userS
   const selectedFrameworkDef = currentFrameworks.find(f => f.id === frameworkId);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+    <div className="bg-white rounded-none shadow-none border-2 border-black p-6">
       <h2 className="text-xl font-bold text-slate-800 mb-4">Post Configuration</h2>
       <form onSubmit={handleSubmit} className="space-y-5">
         
         {/* Audience Selection */}
         <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Target Audience</label>
-        <select 
-            value={audience} 
-            onChange={(e) => setAudience(e.target.value)}
-            className="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 bg-slate-50 border"
-        >
-            {availableAudiences.map((opt, idx) => (
-              <option key={idx} value={opt}>{opt}</option>
-            ))}
-        </select>
+        <div className="relative">
+          <select 
+              value={audience} 
+              onChange={(e) => setAudience(e.target.value)}
+            className="w-full appearance-none rounded-none border-2 border-black shadow-none focus:border-indigo-600 focus:ring-indigo-600 p-2.5 pr-10 bg-slate-50"
+          >
+              {availableAudiences.map((opt, idx) => (
+                <option key={idx} value={opt}>{opt}</option>
+              ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-700" />
+        </div>
         </div>
 
         {/* Category Selection */}
         <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
-        <select 
-            value={category} 
-            onChange={handleCategoryChange}
-            className="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 bg-slate-50 border"
-        >
-            {CATEGORY_OPTIONS.map((opt) => (
-            <option key={opt} value={opt}>{opt}</option>
-            ))}
-        </select>
+        <div className="relative">
+          <select 
+              value={category} 
+              onChange={handleCategoryChange}
+            className="w-full appearance-none rounded-none border-2 border-black shadow-none focus:border-indigo-600 focus:ring-indigo-600 p-2.5 pr-10 bg-slate-50"
+          >
+              {CATEGORY_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+              ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-700" />
+        </div>
         </div>
 
         {/* Goal Selection */}
         <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Post Goal (CTA)</label>
-        <select 
-            value={goal} 
-            onChange={(e) => setGoal(e.target.value as PostGoal)}
-            className="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 bg-slate-50 border"
-        >
-            {GOAL_OPTIONS.map((opt) => (
-            <option key={opt} value={opt}>{opt}</option>
-            ))}
-        </select>
+        <div className="relative">
+          <select 
+              value={goal} 
+              onChange={(e) => setGoal(e.target.value as PostGoal)}
+            className="w-full appearance-none rounded-none border-2 border-black shadow-none focus:border-indigo-600 focus:ring-indigo-600 p-2.5 pr-10 bg-slate-50"
+          >
+              {GOAL_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+              ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-700" />
+        </div>
         </div>
 
         {/* Tone Selection */}
         <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Tone / Vibe</label>
-        <select 
-            value={tone} 
-            onChange={(e) => setTone(e.target.value as PostTone)}
-            className="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 bg-slate-50 border"
-        >
-            {TONE_OPTIONS.map((opt) => (
-            <option key={opt} value={opt}>{opt}</option>
-            ))}
-        </select>
+        <div className="relative">
+          <select 
+              value={tone} 
+              onChange={(e) => setTone(e.target.value as PostTone)}
+            className="w-full appearance-none rounded-none border-2 border-black shadow-none focus:border-indigo-600 focus:ring-indigo-600 p-2.5 pr-10 bg-slate-50"
+          >
+              {TONE_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+              ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-700" />
+        </div>
         </div>
 
         {/* Specific Framework Selection (not used for Comments) */}
@@ -149,30 +161,33 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, userS
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Specific Framework <span className="text-slate-400 font-normal">(Optional)</span>
             </label>
-            <select
-              value={frameworkId}
-              onChange={(e) => setFrameworkId(e.target.value)}
-              className="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 bg-slate-50 border"
-            >
-              <option value="">✨ Auto-select best structure</option>
-              {currentFrameworks.map((fw) => (
-                <option key={fw.id} value={fw.id}>
-                  {fw.id}: {fw.name}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                value={frameworkId}
+                onChange={(e) => setFrameworkId(e.target.value)}
+                className="w-full appearance-none rounded-none border-2 border-black shadow-none focus:border-indigo-600 focus:ring-indigo-600 p-2.5 pr-10 bg-slate-50"
+              >
+                <option value="">✨ Auto-select best structure</option>
+                {currentFrameworks.map((fw) => (
+                  <option key={fw.id} value={fw.id}>
+                    {fw.id}: {fw.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-700" />
+            </div>
               
             {/* Contextual Help for Selected Framework */}
             {selectedFrameworkDef ? (
               <div className="mt-2 space-y-2">
-                <div className="p-3 bg-indigo-50 text-indigo-800 text-xs rounded-lg flex items-start">
+                <div className="p-3 bg-indigo-50 text-indigo-900 text-xs rounded-none border-2 border-black flex items-start">
                   <Info className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
                   <span>
                     <strong>Structure:</strong> {selectedFrameworkDef.description}
                   </span>
                 </div>
                 {FRAMEWORK_PRO_TIPS[selectedFrameworkDef.id] && (
-                  <div className="p-3 bg-amber-50 text-amber-900 text-xs rounded-lg flex items-start border border-amber-100">
+                  <div className="p-3 bg-amber-50 text-amber-950 text-xs rounded-none border-2 border-black flex items-start">
                     <Lightbulb className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5 text-amber-600" />
                     <span>
                       <strong>Pro Tip:</strong> {FRAMEWORK_PRO_TIPS[selectedFrameworkDef.id]}
@@ -202,7 +217,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, userS
                 ? "Paste the post you're replying to (or the key excerpt)..."
                 : "e.g., Why paper guides at festivals are dead..."}
             rows={isComments ? 6 : 4}
-            className="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border"
+            className="w-full rounded-none border-2 border-black shadow-none focus:border-indigo-600 focus:ring-indigo-600 p-3 bg-white"
             required
           />
         </div>
@@ -218,7 +233,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, userS
                   type="checkbox"
                   checked={includeNews}
                   onChange={(e) => setIncludeNews(e.target.checked)}
-                  className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-slate-300 rounded"
+                  className="focus:ring-indigo-600 h-4 w-4 text-indigo-600 border-black rounded-none"
                 />
               </div>
               <div className="ml-3 text-sm">
@@ -241,7 +256,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, userS
                   onChange={(e) => setSourceUrlsText(e.target.value)}
                   placeholder="https://example.com/article\nhttps://another.com/report"
                   rows={3}
-                  className="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border"
+                  className="w-full rounded-none border-2 border-black shadow-none focus:border-indigo-600 focus:ring-indigo-600 p-3 bg-white"
                 />
                 <p className="text-xs text-slate-500">
                   When enabled, the model will be restricted to these sources only. Invalid links will be removed from the result.
@@ -255,7 +270,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading, userS
         <button
           type="submit"
           disabled={isLoading || !topic.trim()}
-          className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="w-full flex justify-center items-center py-3 px-4 border-2 border-black rounded-none shadow-none text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {isLoading ? (
             <>

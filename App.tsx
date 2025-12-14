@@ -15,9 +15,16 @@ declare const __HAS_DEEPSEEK_KEY__: boolean;
 const hasConfiguredApiKey = __HAS_DEEPSEEK_KEY__;
 
 const Footer = () => (
-  <footer className="py-6 text-center text-sm text-slate-500 bg-slate-50 border-t border-slate-200">
-    <p>For any questions, please contact <a href="mailto:info@artflaneur.com.au" className="text-indigo-600 hover:underline">info@artflaneur.com.au</a></p>
-    <p className="mt-1 text-xs text-slate-400">Disclaimer: Generated content may contain errors. Please review before publishing.</p>
+  <footer className="py-6 text-center text-sm text-slate-600 bg-white border-t-2 border-black">
+    <p>
+      For any questions, please contact{' '}
+      <a href="mailto:info@artflaneur.com.au" className="text-indigo-700 hover:underline">
+        info@artflaneur.com.au
+      </a>
+    </p>
+    <p className="mt-1 text-xs text-slate-500">
+      Disclaimer: Generated content may contain errors. Please review before publishing.
+    </p>
   </footer>
 );
 
@@ -571,9 +578,9 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen flex flex-col bg-slate-50">
         <div className="flex-grow flex items-center justify-center">
-          <div className="w-full max-w-2xl px-4">
+          <div className="w-full max-w-2xl md:max-w-3xl lg:max-w-4xl px-4">
             {error && (
-              <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-800">
+              <div className="mb-4 bg-red-50 border-2 border-black rounded-none p-4 text-sm text-red-800">
                 <strong>Error:</strong> {error}
               </div>
             )}
@@ -625,20 +632,24 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900 flex flex-col">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
+      <header className="bg-white border-b-2 border-black sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-2 sm:space-x-3">
-            <div className="bg-indigo-600 p-2 rounded-lg">
-                <Factory className="text-white h-5 w-5" />
+            <div className="bg-indigo-100 p-2 border-2 border-black rounded-none flex items-center justify-center">
+                <Factory className="text-slate-900 h-5 w-5" />
             </div>
-            <h1 className="text-lg sm:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 to-violet-700 truncate max-w-[10rem] sm:max-w-none">
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 truncate max-w-[10rem] sm:max-w-none">
               Make Content
             </h1>
           </div>
           <div className="flex items-center space-x-2 sm:space-x-4">
+            <div className="hidden sm:block text-xs font-medium px-3 py-2 bg-slate-100 text-slate-700">
+              {isPro ? 'Unlimited Pro Access' : `${Math.max(0, FREE_LIMIT - generationCount)} credits left`}
+            </div>
+
             <button 
               onClick={() => setIsEditingSettings(true)}
-              className="text-slate-500 hover:text-indigo-600 transition-colors flex items-center text-sm font-medium"
+              className="text-slate-900 transition-colors inline-flex items-center text-sm font-medium px-3 py-2 border-2 border-black rounded-none bg-indigo-50 hover:bg-indigo-100"
               aria-label="Factory Settings"
             >
               <Settings className="w-4 h-4 sm:mr-1.5" />
@@ -648,8 +659,8 @@ const App: React.FC = () => {
 
             <button
               onClick={() => setActiveTab(activeTab === 'history' ? 'generate' : 'history')}
-              className={`transition-colors flex items-center text-sm font-medium ${
-                activeTab === 'history' ? 'text-indigo-600' : 'text-slate-500 hover:text-indigo-600'
+              className={`transition-colors inline-flex items-center text-sm font-medium px-3 py-2 border-2 border-black rounded-none text-slate-900 ${
+                activeTab === 'history' ? 'bg-amber-200' : 'bg-amber-50 hover:bg-amber-100'
               }`}
               aria-label="History"
             >
@@ -661,7 +672,7 @@ const App: React.FC = () => {
             {!isPro && (
                 <button 
                 onClick={() => setIsPaymentModalOpen(true)}
-                className="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-full transition-colors flex items-center text-xs font-bold"
+                className="text-slate-900 bg-emerald-50 hover:bg-emerald-100 px-3 py-2 rounded-none border-2 border-black transition-colors inline-flex items-center text-sm font-medium"
                 aria-label="Upgrade"
                 >
                 <Zap className="w-3 h-3 sm:mr-1 fill-current" />
@@ -670,15 +681,11 @@ const App: React.FC = () => {
                 </button>
             )}
 
-            <div className="hidden sm:block text-xs font-medium px-3 py-1 bg-slate-100 rounded-full text-slate-500">
-              {isPro ? 'Unlimited Pro Access' : `${Math.max(0, FREE_LIMIT - generationCount)} credits left`}
-            </div>
-
             {userId && (
               <button
                 onClick={handleLogout}
                 disabled={isLoggingOut}
-                className="text-slate-500 hover:text-indigo-600 transition-colors flex items-center text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="text-slate-900 transition-colors inline-flex items-center text-sm font-medium px-3 py-2 border-2 border-black rounded-none bg-rose-50 hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Log Out"
               >
                 <LogOut className="w-4 h-4 sm:mr-1.5" />
@@ -701,7 +708,7 @@ const App: React.FC = () => {
 
         {/* API Key Warning (For Demo Purposes) */}
         {!hasConfiguredApiKey && (
-             <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 flex items-start">
+             <div className="mb-6 bg-amber-50 border-2 border-black rounded-none p-4 text-sm text-amber-900 flex items-start">
                 <span className="mr-2">⚠️</span>
                 <span>
               <strong>Missing API Key:</strong> Configure <code>DEEPSEEK_API_KEY</code> in your server environment (.env.local) so the local proxy can authenticate requests.
@@ -710,7 +717,7 @@ const App: React.FC = () => {
         )}
 
         {error && (
-             <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-800">
+           <div className="mb-6 bg-red-50 border-2 border-black rounded-none p-4 text-sm text-red-800">
                 <strong>Error:</strong> {error}
             </div>
         )}

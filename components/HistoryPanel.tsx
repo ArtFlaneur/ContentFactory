@@ -20,8 +20,8 @@ const categoryLabel = (category: Category) => String(category);
 export const HistoryPanel: React.FC<HistoryPanelProps> = ({ items, onSelect }) => {
   if (!items || items.length === 0) {
     return (
-      <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
-        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+      <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-black rounded-none bg-slate-50">
+        <div className="w-16 h-16 bg-white border-2 border-black rounded-none flex items-center justify-center mb-4">
           <Clock className="h-7 w-7" />
         </div>
         <p className="font-medium">No history yet</p>
@@ -33,8 +33,8 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ items, onSelect }) =
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden flex flex-col h-full">
-      <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
+    <div className="bg-white rounded-none shadow-none border-2 border-black overflow-hidden flex flex-col h-full">
+      <div className="px-6 py-4 border-b-2 border-black bg-slate-50">
         <h3 className="font-semibold text-slate-900">History</h3>
         <p className="text-xs text-slate-500 mt-0.5">Click an item to reopen the generated text.</p>
       </div>
@@ -44,7 +44,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ items, onSelect }) =
           <button
             key={item.id}
             onClick={() => onSelect(item)}
-            className="w-full text-left p-4 rounded-lg border border-slate-200 hover:border-indigo-200 hover:bg-indigo-50/30 transition-colors"
+            className="w-full text-left p-4 rounded-none border-2 border-black hover:bg-indigo-50 transition-colors"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">

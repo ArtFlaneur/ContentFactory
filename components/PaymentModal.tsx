@@ -20,7 +20,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, onU
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden relative animate-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-none shadow-none border-2 border-black max-w-md w-full overflow-hidden relative animate-in zoom-in-95 duration-200">
         
         {/* Close Button */}
         <button 
@@ -31,12 +31,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, onU
         </button>
 
         {/* Header */}
-        <div className="bg-indigo-900 p-8 text-center text-white">
-          <div className="w-12 h-12 bg-indigo-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-900/50">
-            <Zap className="text-white h-6 w-6 fill-current" />
+        <div className="bg-indigo-50 p-8 text-center text-slate-900 border-b-2 border-black">
+          <div className="w-12 h-12 bg-amber-50 border-2 border-black rounded-none flex items-center justify-center mx-auto mb-4">
+            <Zap className="text-slate-900 h-6 w-6 fill-current" />
           </div>
           <h2 className="text-2xl font-bold mb-2">Upgrade to Pro Factory</h2>
-          <p className="text-indigo-200 text-sm">Unlock the full potential of your content engine.</p>
+          <p className="text-slate-600 text-sm">Unlock the full potential of your content engine.</p>
         </div>
 
         {/* Content */}
@@ -44,7 +44,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, onU
           <div className="space-y-4 mb-8">
             {features.map((feature, idx) => (
               <div key={idx} className="flex items-start">
-                <div className="flex-shrink-0 w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mt-0.5 mr-3">
+                <div className="flex-shrink-0 w-5 h-5 rounded-none border-2 border-black bg-green-100 flex items-center justify-center mt-0.5 mr-3">
                   <Check size={12} className="text-green-600" />
                 </div>
                 <span className="text-slate-600 text-sm font-medium">{feature}</span>
@@ -64,7 +64,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, onU
           {/* Action Button */}
           <button
             onClick={onUpgrade}
-            className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg hover:shadow-indigo-500/25 flex items-center justify-center group"
+            className="w-full bg-indigo-600 text-white py-3.5 rounded-none border-2 border-black font-bold hover:bg-indigo-700 transition-colors shadow-none flex items-center justify-center group"
           >
             <span>Unlock Unlimited Access</span>
             <Lock size={16} className="ml-2 opacity-70 group-hover:opacity-100 transition-opacity" />

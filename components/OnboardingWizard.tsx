@@ -168,43 +168,68 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full overflow-hidden flex flex-col md:flex-row min-h-[500px]">
+      <div className="bg-white rounded-none shadow-none border-2 border-black max-w-2xl md:max-w-3xl lg:max-w-4xl w-full overflow-hidden flex flex-col md:flex-row min-h-[500px] md:min-h-[640px]">
         
         {/* Sidebar */}
-        <div className="bg-indigo-900 p-8 text-white md:w-1/3 flex flex-col justify-between">
+        <div className="bg-white p-8 text-slate-900 md:w-1/3 flex flex-col justify-between border-b-2 md:border-b-0 md:border-r-2 border-black">
           <div>
             <div className="flex items-center space-x-2 mb-8">
               <Factory className="h-6 w-6" />
               <span className="font-bold text-xl">Make Content</span>
             </div>
-            <nav className="space-y-6">
+            <nav className="space-y-4">
               {STEPS.map((s) => (
-                <div key={s.id} className={`flex items-start space-x-3 ${step === s.id ? 'opacity-100' : 'opacity-50'}`}>
-                  <div className={`mt-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border ${step === s.id ? 'bg-white text-indigo-900 border-white' : 'border-indigo-400'}`}>
+                <div
+                  key={s.id}
+                  className={`flex items-start space-x-3 p-3 border-2 border-black rounded-none ${
+                    step === s.id
+                      ? s.id === 1
+                        ? 'bg-indigo-200'
+                        : s.id === 2
+                          ? 'bg-amber-200'
+                          : s.id === 3
+                            ? 'bg-emerald-200'
+                            : 'bg-rose-200'
+                      : s.id === 1
+                        ? 'bg-indigo-50'
+                        : s.id === 2
+                          ? 'bg-amber-50'
+                          : s.id === 3
+                            ? 'bg-emerald-50'
+                            : 'bg-rose-50'
+                  }`}
+                >
+                  <div
+                    className={`mt-1 w-6 h-6 rounded-none flex items-center justify-center text-xs font-bold border-2 border-black ${
+                      step === s.id
+                        ? 'bg-white text-slate-900'
+                        : 'bg-white/80 text-slate-700'
+                    }`}
+                  >
                     {step > s.id ? <Check size={14} /> : s.id}
                   </div>
                   <div>
                     <p className="font-medium">{s.title}</p>
-                    <p className="text-xs text-indigo-200">{s.description}</p>
+                    <p className="text-xs text-slate-600">{s.description}</p>
                   </div>
                 </div>
               ))}
             </nav>
           </div>
-          <div className="text-xs text-indigo-300 mt-8">
+          <div className="text-xs text-slate-600 mt-8">
             Step {step} of 4
           </div>
         </div>
 
         {/* Main Content */}
-        <div className="p-8 md:w-2/3 flex flex-col">
+        <div className="px-8 pb-8 pt-6 md:w-2/3 flex flex-col">
           <div className="flex-1">
             {userId && (
               <div className="flex justify-end mb-4">
                 <button
                   onClick={handleLogout}
                   disabled={isLoggingOut}
-                  className="text-slate-500 hover:text-indigo-600 transition-colors inline-flex items-center text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-slate-700 hover:text-slate-900 transition-colors inline-flex items-center text-sm font-medium px-3 py-1 border-2 border-black rounded-none bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label="Log Out"
                 >
                   <LogOut className="w-4 h-4 mr-1.5" />
@@ -213,7 +238,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
               </div>
             )}
             {step === 1 && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300 px-6 pb-6 pt-3 bg-white">
                 <div className="flex justify-between items-start">
                   <div>
                     <h2 className="text-2xl font-bold text-slate-900">Let's build your factory</h2>
@@ -239,7 +264,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                     name="industry"
                     type="text" 
                     autoComplete="organization"
-                    className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className="w-full p-3 border-2 border-black rounded-none focus:ring-2 focus:ring-indigo-600 outline-none bg-white"
                     placeholder="e.g. SaaS Marketing, Fine Art, Crypto"
                     value={settings.industry}
                     onChange={e => setSettings({...settings, industry: e.target.value})}
@@ -252,7 +277,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                     name="role"
                     type="text" 
                     autoComplete="organization-title"
-                    className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className="w-full p-3 border-2 border-black rounded-none focus:ring-2 focus:ring-indigo-600 outline-none bg-white"
                     placeholder="e.g. Founder, Gallery Owner, CMO"
                     value={settings.role}
                     onChange={e => setSettings({...settings, role: e.target.value})}
@@ -267,7 +292,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                       name="country"
                       type="text" 
                       autoComplete="country-name"
-                      className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                      className="w-full p-3 border-2 border-black rounded-none focus:ring-2 focus:ring-indigo-600 outline-none bg-white"
                       placeholder="e.g. USA, France"
                       value={settings.country || ''}
                       onChange={e => setSettings({...settings, country: e.target.value})}
@@ -280,7 +305,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                       name="city"
                       type="text" 
                       autoComplete="address-level2"
-                      className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                      className="w-full p-3 border-2 border-black rounded-none focus:ring-2 focus:ring-indigo-600 outline-none bg-white"
                       placeholder="e.g. New York, Paris"
                       value={settings.city || ''}
                       onChange={e => setSettings({...settings, city: e.target.value})}
@@ -291,7 +316,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
             )}
 
             {step === 2 && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300 px-6 pb-6 pt-3 bg-white">
                 <h2 className="text-2xl font-bold text-slate-900">Who is this for?</h2>
                 <p className="text-slate-500">Define up to 3 distinct target audiences (e.g. "Collectors", "Artists", "Investors").</p>
                 
@@ -302,7 +327,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                       id={`audience-${idx}`}
                       name={`audience-${idx}`}
                       type="text"
-                      className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                      className="w-full p-3 border-2 border-black rounded-none focus:ring-2 focus:ring-indigo-600 outline-none bg-white"
                       placeholder={idx === 0 ? "e.g. High Net Worth Collectors" : idx === 1 ? "e.g. Emerging Artists" : "e.g. Art Fair Directors"}
                       value={settings.targetAudiences?.[idx] || ''}
                       onChange={e => {
@@ -317,21 +342,21 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
             )}
 
             {step === 3 && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300 px-6 pb-6 pt-3 bg-white">
                 <h2 className="text-2xl font-bold text-slate-900">Distribution Channels</h2>
                 <p className="text-slate-500">Where do you want to publish content?</p>
                 
                 <div className="grid grid-cols-1 gap-3">
                   {['linkedin', 'twitter', 'telegram', 'instagram', 'youtube'].map((platform) => (
-                    <label key={platform} className={`flex items-center p-4 border rounded-lg cursor-pointer transition-all ${
+                    <label key={platform} className={`flex items-center p-4 border-2 border-black rounded-none cursor-pointer transition-all ${
                       (settings.primaryPlatforms || []).includes(platform as any) 
-                        ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500' 
-                        : 'border-slate-200 hover:border-indigo-300'
+                        ? 'bg-white' 
+                        : 'bg-slate-50 hover:bg-white'
                     }`}>
                       <input 
                         type="checkbox"
                         name={`platform-${platform}`}
-                        className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"
+                        className="w-5 h-5 text-indigo-600 rounded-none border-black focus:ring-indigo-600"
                         checked={(settings.primaryPlatforms || []).includes(platform as any)}
                         onChange={(e) => {
                           const current = settings.primaryPlatforms || [];
@@ -349,7 +374,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
             )}
 
             {step === 4 && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300 px-6 pb-6 pt-3 bg-white">
                 <h2 className="text-2xl font-bold text-slate-900">
                   {isLoginMode ? 'Welcome Back' : 'Save your Factory'}
                 </h2>
@@ -360,7 +385,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                 </p>
                 
                 {authError && (
-                  <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">
+                  <div className="p-3 bg-red-50 text-red-800 text-sm rounded-none border-2 border-black">
                     {authError}
                   </div>
                 )}
@@ -372,7 +397,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                     name="email"
                     type="email" 
                     autoComplete="email"
-                    className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className="w-full p-3 border-2 border-black rounded-none focus:ring-2 focus:ring-indigo-600 outline-none bg-white"
                     placeholder="you@company.com"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
@@ -385,7 +410,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                     name="password"
                     type="password" 
                     autoComplete={isLoginMode ? 'current-password' : 'new-password'}
-                    className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className="w-full p-3 border-2 border-black rounded-none focus:ring-2 focus:ring-indigo-600 outline-none bg-white"
                     placeholder="••••••••"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
@@ -422,7 +447,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
             )}
           </div>
 
-          <div className="mt-8 flex justify-between items-center pt-6 border-t border-slate-100">
+           <div className="mt-8 flex justify-between items-center pt-6 border-t-2 border-black">
              <div className="flex items-center space-x-4">
                {step > 1 ? (
                   <button 
@@ -435,14 +460,14 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                         setStep(step - 1);
                       }
                     }}
-                    className="text-slate-500 hover:text-slate-800 font-medium px-4 py-2"
+                    className="text-slate-800 hover:text-slate-900 font-medium px-4 py-2 border-2 border-black rounded-none bg-white hover:bg-slate-50"
                   >
                     Back
                   </button>
                ) : onCancel ? (
                   <button 
                     onClick={onCancel}
-                    className="text-slate-500 hover:text-red-600 font-medium px-4 py-2"
+                    className="text-slate-800 hover:text-red-700 font-medium px-4 py-2 border-2 border-black rounded-none bg-white hover:bg-slate-50"
                   >
                     Cancel
                   </button>
@@ -452,7 +477,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
              <button 
                onClick={handleNext}
                disabled={isSigningUp}
-               className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+               className="bg-indigo-600 text-white px-4 py-2 rounded-none border-2 border-black font-medium text-sm hover:bg-indigo-700 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
              >
                {isSigningUp 
                  ? (isLoginMode ? 'Logging in...' : 'Creating Account...') 
