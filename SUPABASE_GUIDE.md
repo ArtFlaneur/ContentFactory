@@ -18,122 +18,308 @@ Set `VITE_SITE_URL=https://content-factory-kohl.vercel.app` in Vercel Environmen
 
 To make your emails look professional, go to **Authentication** -> **Email Templates**.
 
-### General Style (Copy this CSS into the `<head>` of all templates if possible, or inline it)
-Supabase templates support basic HTML.
+### Mondrian-lite Email Style
+Supabase templates support basic HTML. For best compatibility across email clients, the templates below use table layout and mostly inline styles.
 
 ### A. Confirm Your Signup
-**Subject**: Welcome to Content Factory! Confirm your email
+**Subject**: Welcome to Make Content — confirm your email
 
 ```html
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #334155; background-color: #f8fafc; margin: 0; padding: 0; }
-    .container { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-    .header { background: linear-gradient(to right, #4f46e5, #7c3aed); padding: 32px; text-align: center; }
-    .header h1 { color: white; margin: 0; font-size: 24px; font-weight: 700; }
-    .content { padding: 40px 32px; }
-    .button { display: inline-block; background-color: #4f46e5; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 24px; }
-    .footer { padding: 24px; text-align: center; font-size: 12px; color: #94a3b8; background-color: #f1f5f9; }
-  </style>
 </head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>Content Factory</h1>
-    </div>
-    <div class="content">
-      <h2>Confirm your email address</h2>
-      <p>Welcome to the factory! You're just one step away from creating viral content.</p>
-      <p>Please confirm your email address to activate your account and save your settings.</p>
-      <center>
-        <a href="{{ .ConfirmationURL }}" class="button">Confirm Email</a>
-      </center>
-      <p style="margin-top: 32px; font-size: 14px; color: #64748b;">If you didn't request this, you can safely ignore this email.</p>
-    </div>
-    <div class="footer">
-      &copy; 2025 Art Flaneur. All rights reserved.
-    </div>
-  </div>
+<body style="margin:0;padding:0;background:#f8fafc;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f8fafc;">
+    <tr>
+      <td align="center" style="padding:32px 12px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;width:100%;background:#ffffff;border:2px solid #000000;">
+          <tr>
+            <td style="padding:0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-bottom:2px solid #000000;">
+                <tr>
+                  <td width="25%" height="14" style="background:#c7d2fe;border-right:2px solid #000000;">&nbsp;</td>
+                  <td width="25%" height="14" style="background:#fde68a;border-right:2px solid #000000;">&nbsp;</td>
+                  <td width="25%" height="14" style="background:#a7f3d0;border-right:2px solid #000000;">&nbsp;</td>
+                  <td width="25%" height="14" style="background:#fecdd3;">&nbsp;</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 20px 0 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f172a;">
+              <div style="font-size:18px;font-weight:800;line-height:1.2;">Make Content</div>
+              <div style="margin-top:6px;font-size:12px;font-weight:600;color:#475569;">Confirm your email to activate your account</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 20px 22px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#334155;line-height:1.6;">
+              <h2 style="margin:0 0 10px 0;font-size:18px;line-height:1.3;color:#0f172a;">Confirm your email</h2>
+              <p style="margin:0 0 14px 0;">Thanks for signing up. Confirm your email address to activate your account and start saving your settings.</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0 8px 0;">
+                <tr>
+                  <td align="center" style="background:#c7d2fe;border:2px solid #000000;">
+                    <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:12px 16px;font-weight:800;text-decoration:none;color:#0f172a;font-size:14px;">Confirm Email</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:10px 0 0 0;font-size:12px;color:#64748b;">If the button doesn’t work, paste this link into your browser:</p>
+              <p style="margin:6px 0 0 0;font-size:12px;word-break:break-all;"><a href="{{ .ConfirmationURL }}" style="color:#0f172a;">{{ .ConfirmationURL }}</a></p>
+              <p style="margin:18px 0 0 0;font-size:12px;color:#64748b;">If you didn’t request this, you can safely ignore this email.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:14px 20px;border-top:2px solid #000000;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#64748b;font-size:12px;">
+              © 2025 Art Flaneur
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
 ```
 
 ### B. Magic Link
-**Subject**: Log in to Content Factory
+**Subject**: Log in to Make Content
 
 ```html
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #334155; background-color: #f8fafc; margin: 0; padding: 0; }
-    .container { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-    .header { background: linear-gradient(to right, #4f46e5, #7c3aed); padding: 32px; text-align: center; }
-    .header h1 { color: white; margin: 0; font-size: 24px; font-weight: 700; }
-    .content { padding: 40px 32px; }
-    .button { display: inline-block; background-color: #4f46e5; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 24px; }
-    .footer { padding: 24px; text-align: center; font-size: 12px; color: #94a3b8; background-color: #f1f5f9; }
-  </style>
 </head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>Content Factory</h1>
-    </div>
-    <div class="content">
-      <h2>Your Magic Link</h2>
-      <p>Click the button below to log in to your account instantly.</p>
-      <center>
-        <a href="{{ .ConfirmationURL }}" class="button">Log In Now</a>
-      </center>
-      <p style="margin-top: 32px; font-size: 14px; color: #64748b;">This link will expire in 24 hours.</p>
-    </div>
-    <div class="footer">
-      &copy; 2025 Art Flaneur. All rights reserved.
-    </div>
-  </div>
+<body style="margin:0;padding:0;background:#f8fafc;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f8fafc;">
+    <tr>
+      <td align="center" style="padding:32px 12px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;width:100%;background:#ffffff;border:2px solid #000000;">
+          <tr>
+            <td style="padding:0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-bottom:2px solid #000000;">
+                <tr>
+                  <td width="25%" height="14" style="background:#c7d2fe;border-right:2px solid #000000;">&nbsp;</td>
+                  <td width="25%" height="14" style="background:#fde68a;border-right:2px solid #000000;">&nbsp;</td>
+                  <td width="25%" height="14" style="background:#a7f3d0;border-right:2px solid #000000;">&nbsp;</td>
+                  <td width="25%" height="14" style="background:#fecdd3;">&nbsp;</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 20px 0 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f172a;">
+              <div style="font-size:18px;font-weight:800;line-height:1.2;">Make Content</div>
+              <div style="margin-top:6px;font-size:12px;font-weight:600;color:#475569;">Your secure sign-in link</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 20px 22px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#334155;line-height:1.6;">
+              <h2 style="margin:0 0 10px 0;font-size:18px;line-height:1.3;color:#0f172a;">Your magic link</h2>
+              <p style="margin:0 0 14px 0;">Use this button to log in. If you didn’t request it, ignore this email.</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0 8px 0;">
+                <tr>
+                  <td align="center" style="background:#fde68a;border:2px solid #000000;">
+                    <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:12px 16px;font-weight:800;text-decoration:none;color:#0f172a;font-size:14px;">Log In</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:10px 0 0 0;font-size:12px;color:#64748b;">If the button doesn’t work, paste this link into your browser:</p>
+              <p style="margin:6px 0 0 0;font-size:12px;word-break:break-all;"><a href="{{ .ConfirmationURL }}" style="color:#0f172a;">{{ .ConfirmationURL }}</a></p>
+              <p style="margin:18px 0 0 0;font-size:12px;color:#64748b;">This link expires (per your Supabase Auth settings).</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:14px 20px;border-top:2px solid #000000;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#64748b;font-size:12px;">
+              © 2025 Art Flaneur
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
 ```
 
 ### C. Reset Password
-**Subject**: Reset your Content Factory password
+**Subject**: Reset your Make Content password
 
 ```html
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #334155; background-color: #f8fafc; margin: 0; padding: 0; }
-    .container { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-    .header { background: linear-gradient(to right, #4f46e5, #7c3aed); padding: 32px; text-align: center; }
-    .header h1 { color: white; margin: 0; font-size: 24px; font-weight: 700; }
-    .content { padding: 40px 32px; }
-    .button { display: inline-block; background-color: #4f46e5; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 24px; }
-    .footer { padding: 24px; text-align: center; font-size: 12px; color: #94a3b8; background-color: #f1f5f9; }
-  </style>
 </head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>Content Factory</h1>
-    </div>
-    <div class="content">
-      <h2>Reset Password</h2>
-      <p>We received a request to reset your password. Click the button below to choose a new one.</p>
-      <center>
-        <a href="{{ .ConfirmationURL }}" class="button">Reset Password</a>
-      </center>
-    </div>
-    <div class="footer">
-      &copy; 2025 Art Flaneur. All rights reserved.
-    </div>
-  </div>
+<body style="margin:0;padding:0;background:#f8fafc;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f8fafc;">
+    <tr>
+      <td align="center" style="padding:32px 12px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;width:100%;background:#ffffff;border:2px solid #000000;">
+          <tr>
+            <td style="padding:0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-bottom:2px solid #000000;">
+                <tr>
+                  <td width="25%" height="14" style="background:#c7d2fe;border-right:2px solid #000000;">&nbsp;</td>
+                  <td width="25%" height="14" style="background:#fde68a;border-right:2px solid #000000;">&nbsp;</td>
+                  <td width="25%" height="14" style="background:#a7f3d0;border-right:2px solid #000000;">&nbsp;</td>
+                  <td width="25%" height="14" style="background:#fecdd3;">&nbsp;</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 20px 0 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f172a;">
+              <div style="font-size:18px;font-weight:800;line-height:1.2;">Make Content</div>
+              <div style="margin-top:6px;font-size:12px;font-weight:600;color:#475569;">Reset your password</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 20px 22px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#334155;line-height:1.6;">
+              <h2 style="margin:0 0 10px 0;font-size:18px;line-height:1.3;color:#0f172a;">Reset password</h2>
+              <p style="margin:0 0 14px 0;">We received a request to reset your password. Use the button below to set a new one.</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0 8px 0;">
+                <tr>
+                  <td align="center" style="background:#fecdd3;border:2px solid #000000;">
+                    <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:12px 16px;font-weight:800;text-decoration:none;color:#0f172a;font-size:14px;">Reset Password</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:10px 0 0 0;font-size:12px;color:#64748b;">If the button doesn’t work, paste this link into your browser:</p>
+              <p style="margin:6px 0 0 0;font-size:12px;word-break:break-all;"><a href="{{ .ConfirmationURL }}" style="color:#0f172a;">{{ .ConfirmationURL }}</a></p>
+              <p style="margin:18px 0 0 0;font-size:12px;color:#64748b;">If you didn’t request a password reset, ignore this email.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:14px 20px;border-top:2px solid #000000;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#64748b;font-size:12px;">
+              © 2025 Art Flaneur
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+```
+
+### D. Invite User
+**Subject**: You’ve been invited to Make Content
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+</head>
+<body style="margin:0;padding:0;background:#f8fafc;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f8fafc;">
+    <tr>
+      <td align="center" style="padding:32px 12px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;width:100%;background:#ffffff;border:2px solid #000000;">
+          <tr>
+            <td style="padding:0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-bottom:2px solid #000000;">
+                <tr>
+                  <td width="25%" height="14" style="background:#c7d2fe;border-right:2px solid #000000;">&nbsp;</td>
+                  <td width="25%" height="14" style="background:#fde68a;border-right:2px solid #000000;">&nbsp;</td>
+                  <td width="25%" height="14" style="background:#a7f3d0;border-right:2px solid #000000;">&nbsp;</td>
+                  <td width="25%" height="14" style="background:#fecdd3;">&nbsp;</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 20px 0 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f172a;">
+              <div style="font-size:18px;font-weight:800;line-height:1.2;">Make Content</div>
+              <div style="margin-top:6px;font-size:12px;font-weight:600;color:#475569;">Invitation</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 20px 22px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#334155;line-height:1.6;">
+              <h2 style="margin:0 0 10px 0;font-size:18px;line-height:1.3;color:#0f172a;">You’ve been invited</h2>
+              <p style="margin:0 0 14px 0;">Click the button below to accept the invitation and finish setting up your account.</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0 8px 0;">
+                <tr>
+                  <td align="center" style="background:#a7f3d0;border:2px solid #000000;">
+                    <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:12px 16px;font-weight:800;text-decoration:none;color:#0f172a;font-size:14px;">Accept Invite</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:10px 0 0 0;font-size:12px;color:#64748b;">If the button doesn’t work, paste this link into your browser:</p>
+              <p style="margin:6px 0 0 0;font-size:12px;word-break:break-all;"><a href="{{ .ConfirmationURL }}" style="color:#0f172a;">{{ .ConfirmationURL }}</a></p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:14px 20px;border-top:2px solid #000000;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#64748b;font-size:12px;">
+              © 2025 Art Flaneur
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+```
+
+### E. Email Change
+**Subject**: Confirm your new email for Make Content
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+</head>
+<body style="margin:0;padding:0;background:#f8fafc;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f8fafc;">
+    <tr>
+      <td align="center" style="padding:32px 12px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;width:100%;background:#ffffff;border:2px solid #000000;">
+          <tr>
+            <td style="padding:0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-bottom:2px solid #000000;">
+                <tr>
+                  <td width="25%" height="14" style="background:#c7d2fe;border-right:2px solid #000000;">&nbsp;</td>
+                  <td width="25%" height="14" style="background:#fde68a;border-right:2px solid #000000;">&nbsp;</td>
+                  <td width="25%" height="14" style="background:#a7f3d0;border-right:2px solid #000000;">&nbsp;</td>
+                  <td width="25%" height="14" style="background:#fecdd3;">&nbsp;</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 20px 0 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f172a;">
+              <div style="font-size:18px;font-weight:800;line-height:1.2;">Make Content</div>
+              <div style="margin-top:6px;font-size:12px;font-weight:600;color:#475569;">Confirm email change</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 20px 22px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#334155;line-height:1.6;">
+              <h2 style="margin:0 0 10px 0;font-size:18px;line-height:1.3;color:#0f172a;">Confirm your new email</h2>
+              <p style="margin:0 0 14px 0;">Use the button below to confirm this email address for your account.</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0 8px 0;">
+                <tr>
+                  <td align="center" style="background:#c7d2fe;border:2px solid #000000;">
+                    <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:12px 16px;font-weight:800;text-decoration:none;color:#0f172a;font-size:14px;">Confirm Email Change</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:10px 0 0 0;font-size:12px;color:#64748b;">If the button doesn’t work, paste this link into your browser:</p>
+              <p style="margin:6px 0 0 0;font-size:12px;word-break:break-all;"><a href="{{ .ConfirmationURL }}" style="color:#0f172a;">{{ .ConfirmationURL }}</a></p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:14px 20px;border-top:2px solid #000000;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#64748b;font-size:12px;">
+              © 2025 Art Flaneur
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
 ```
