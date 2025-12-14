@@ -101,3 +101,10 @@ export interface GeneratedPost {
   rationale: string;
   sourceLinks?: SourceLink[]; // URLs from grounding
 }
+
+export interface HistoryItem {
+  id: string;
+  createdAt: number; // epoch ms
+  request: Pick<PostRequest, 'topic' | 'audience' | 'category' | 'goal' | 'tone' | 'includeNews'>;
+  post: GeneratedPost;
+}

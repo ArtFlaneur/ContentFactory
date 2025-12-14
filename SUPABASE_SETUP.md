@@ -48,6 +48,39 @@ $$ language plpgsql security definer;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- --------------------------------------------
+-- Generated Posts History (cross-device)
+-- --------------------------------------------
+
+-- Enables gen_random_uuid()
+create extension if not exists "pgcrypto";
+
+create table if not exists public.generated_posts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade not null,
+  created_at timestamp with time zone not null default now(),
+  request jsonb not null,
+  post jsonb not null
+);
+
+create index if not exists generated_posts_user_created_idx
+  on public.generated_posts (user_id, created_at desc);
+
+alter table public.generated_posts enable row level security;
+
+create policy "Users can read own generated posts" on public.generated_posts
+  for select using (auth.uid() = user_id);
+
+create policy "Users can insert own generated posts" on public.generated_posts
+  for insert with check (auth.uid() = user_id);
+
+create policy "Users can delete own generated posts" on public.generated_posts
+  for delete using (auth.uid() = user_id);
+
+-- (Optional) allow updates if you later add rename/tags
+create policy "Users can update own generated posts" on public.generated_posts
+  for update using (auth.uid() = user_id);
 ```
 
 ## 3. Get API Keys

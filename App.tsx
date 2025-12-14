@@ -3,12 +3,13 @@ import { InputForm } from './components/InputForm';
 import { GeneratedPost } from './components/GeneratedPost';
 import { OnboardingWizard } from './components/OnboardingWizard';
 import { PaymentModal } from './components/PaymentModal';
-import { PostRequest, GeneratedPost as GeneratedPostType, UserSettings } from './types';
+import { HistoryPanel } from './components/HistoryPanel';
+import { HistoryItem, PostRequest, GeneratedPost as GeneratedPostType, UserSettings } from './types';
 import { generateLinkedInPost } from './services/deepseekService';
 import { userService } from './services/userService';
 import { supabase } from './services/supabaseClient';
 import { storage } from './services/storage';
-import { Factory, Settings, Zap } from 'lucide-react';
+import { Factory, Settings, Zap, Clock } from 'lucide-react';
 
 declare const __HAS_DEEPSEEK_KEY__: boolean;
 const hasConfiguredApiKey = __HAS_DEEPSEEK_KEY__;
@@ -60,8 +61,58 @@ const App: React.FC = () => {
   const [generationStatus, setGenerationStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const generationStatusTimerRef = React.useRef<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'generate' | 'history'>('generate');
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
 
   const FREE_LIMIT = 3;
+
+  const getHistoryKey = (uid: string | null) => `cf_history_${uid || 'anon'}`;
+
+  const loadHistory = React.useCallback((uid: string | null) => {
+    try {
+      const raw = storage.getItem(getHistoryKey(uid));
+      if (!raw) return [] as HistoryItem[];
+      const parsed = JSON.parse(raw) as HistoryItem[];
+      return Array.isArray(parsed) ? parsed : ([] as HistoryItem[]);
+    } catch {
+      return [] as HistoryItem[];
+    }
+  }, []);
+
+  const saveHistory = React.useCallback((uid: string | null, items: HistoryItem[]) => {
+    try {
+      storage.setItem(getHistoryKey(uid), JSON.stringify(items));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    // Guest history stays local.
+    if (!userId) {
+      setHistoryItems(loadHistory(null));
+      return;
+    }
+
+    // Logged-in history is loaded from Supabase (and cached locally as a fallback).
+    void (async () => {
+      const remote = await userService.listHistory(userId, 50);
+      if (cancelled) return;
+      if (remote && remote.length > 0) {
+        setHistoryItems(remote);
+        saveHistory(userId, remote);
+      } else {
+        // Fallback to local cache if DB is empty/unavailable.
+        setHistoryItems(loadHistory(userId));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, loadHistory, saveHistory]);
 
   // Hydrate user session + profile on startup and on auth changes.
   React.useEffect(() => {
@@ -237,6 +288,9 @@ const App: React.FC = () => {
       return;
     }
 
+    // Ensure the user sees progress/output (not the history list) while generating.
+    setActiveTab('generate');
+
     // Show a visible progress/status in the output panel while waiting for the model.
     if (generationStatusTimerRef.current) {
       window.clearInterval(generationStatusTimerRef.current);
@@ -294,6 +348,57 @@ const App: React.FC = () => {
     try {
       const result = await generateLinkedInPost(enrichedRequest);
       setCurrentPost(result);
+
+      // Persist to history
+      const historyPayload = {
+        request: {
+          topic: request.topic,
+          audience: request.audience,
+          category: request.category,
+          goal: request.goal,
+          tone: request.tone,
+          includeNews: request.includeNews
+        } as HistoryItem['request'],
+        post: result
+      };
+
+      if (userId) {
+        // Prefer Supabase for logged-in users (cross-device).
+        const saved = await userService.addHistoryItem(userId, historyPayload);
+        if (saved) {
+          setHistoryItems((prev) => {
+            const next = [saved, ...(prev || [])].slice(0, 50);
+            saveHistory(userId, next);
+            return next;
+          });
+        } else {
+          // Fallback to local cache
+          const fallbackItem: HistoryItem = {
+            id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+            createdAt: Date.now(),
+            request: historyPayload.request,
+            post: historyPayload.post
+          };
+          setHistoryItems((prev) => {
+            const next = [fallbackItem, ...(prev || [])].slice(0, 50);
+            saveHistory(userId, next);
+            return next;
+          });
+        }
+      } else {
+        // Guest: local-only.
+        const newItem: HistoryItem = {
+          id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+          createdAt: Date.now(),
+          request: historyPayload.request,
+          post: historyPayload.post
+        };
+        setHistoryItems((prev) => {
+          const next = [newItem, ...(prev || [])].slice(0, 50);
+          saveHistory(null, next);
+          return next;
+        });
+      }
       
       // Update count
       setGenerationCount(prev => {
@@ -455,6 +560,16 @@ const App: React.FC = () => {
               <Settings className="w-4 h-4 mr-1.5" />
               Factory Settings
             </button>
+
+            <button
+              onClick={() => setActiveTab(activeTab === 'history' ? 'generate' : 'history')}
+              className={`transition-colors flex items-center text-sm font-medium ${
+                activeTab === 'history' ? 'text-indigo-600' : 'text-slate-500 hover:text-indigo-600'
+              }`}
+            >
+              <Clock className="w-4 h-4 mr-1.5" />
+              History
+            </button>
             
             {!isPro && (
                 <button 
@@ -516,13 +631,23 @@ const App: React.FC = () => {
 
           {/* Right Column: Output */}
           <div className="lg:col-span-8 xl:col-span-8">
-            <GeneratedPost 
-              post={currentPost} 
-              isLoading={isLoading}
-              statusText={generationStatus}
-              onReset={handleReset} 
-              userSettings={userSettings}
-            />
+            {activeTab === 'history' ? (
+              <HistoryPanel
+                items={historyItems}
+                onSelect={(item) => {
+                  setCurrentPost(item.post as GeneratedPostType);
+                  setActiveTab('generate');
+                }}
+              />
+            ) : (
+              <GeneratedPost 
+                post={currentPost} 
+                isLoading={isLoading} 
+                statusText={generationStatus}
+                onReset={handleReset} 
+                userSettings={userSettings}
+              />
+            )}
           </div>
         </div>
       </main>

@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import { PostTone, UserProfile, UserSettings } from '../types';
+import { PostTone, type GeneratedPost, type HistoryItem, UserProfile, UserSettings } from '../types';
 
 const normalizeUserSettings = (raw: unknown): UserSettings => {
   const obj = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : {};
@@ -158,5 +158,61 @@ export const userService = {
       .eq('id', userId);
 
     if (error) throw error;
+  }
+  ,
+
+  async listHistory(userId: string, limit = 50): Promise<HistoryItem[]> {
+    const { data, error } = await supabase
+      .from('generated_posts')
+      .select('id,created_at,request,post')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('Error fetching generated_posts:', error);
+      return [];
+    }
+
+    return (data || []).map((row: any) => {
+      const createdAt = row?.created_at ? Date.parse(row.created_at) : Date.now();
+      return {
+        id: String(row.id),
+        createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
+        request: (row.request || {}) as HistoryItem['request'],
+        post: (row.post || {}) as GeneratedPost
+      } satisfies HistoryItem;
+    });
+  },
+
+  async addHistoryItem(
+    userId: string,
+    payload: { request: HistoryItem['request']; post: GeneratedPost }
+  ): Promise<HistoryItem | null> {
+    // RLS requires user_id to match auth.uid().
+    const insertRow = {
+      user_id: userId,
+      request: payload.request,
+      post: payload.post
+    };
+
+    const { data, error } = await supabase
+      .from('generated_posts')
+      .insert(insertRow)
+      .select('id,created_at,request,post')
+      .single();
+
+    if (error) {
+      console.error('Error inserting generated_posts:', error);
+      return null;
+    }
+
+    const createdAt = data?.created_at ? Date.parse((data as any).created_at) : Date.now();
+    return {
+      id: String((data as any).id),
+      createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
+      request: ((data as any).request || payload.request) as HistoryItem['request'],
+      post: ((data as any).post || payload.post) as GeneratedPost
+    };
   }
 };
