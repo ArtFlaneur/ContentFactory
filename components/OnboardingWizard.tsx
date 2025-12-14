@@ -347,7 +347,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                 <p className="text-slate-500">Where do you want to publish content?</p>
                 
                 <div className="grid grid-cols-1 gap-3">
-                  {['linkedin', 'twitter', 'telegram', 'instagram', 'youtube'].map((platform) => (
+                  {['linkedin', 'X/Threads', 'telegram', 'instagram', 'youtube'].map((platform) => (
                     <label key={platform} className={`flex items-center p-4 border-2 border-black rounded-none cursor-pointer transition-all ${
                       (settings.primaryPlatforms || []).includes(platform as any) 
                         ? 'bg-white' 

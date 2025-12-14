@@ -90,7 +90,7 @@ export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, isLoading, s
     <button
       onClick={() => setActiveTab(id)}
       disabled={disabled}
-      className={`flex items-center px-3 py-2 text-sm font-medium rounded-none transition-colors border-b-2 border-black ${
+      className={`flex items-center px-3 py-2 text-sm font-medium rounded-none transition-colors ${
         activeTab === id
           ? 'text-slate-900 bg-amber-50'
           : disabled

@@ -51,12 +51,14 @@ const parseSectionsByHeadings = (text: string) => {
   };
 
   let current: SectionName | null = null;
+  const preamble: string[] = [];
 
   // Matches lines like:
   // LinkedIn
-  // SHORT_VERSION "..."
+  // SHORT_VERSION
+  // **YOUTUBE_VERSION---
   // Telegram: ...
-  const headingRegex = /^\s*(linkedin(?:\s+post(?:\s+content)?)?|short_version|short version|x\s*\/\s*threads|twitter|threads|telegram_version|telegram(?:\s+version)?|instagram_version|instagram(?:\s+version)?|youtube_version|youtube(?:\s+version)?|hooks|alternative hooks)\b\s*:?\s*(.*)$/i;
+  const headingRegex = /^\s*(?:[*_]{1,3}\s*)?(linkedin(?:\s+post(?:\s+content)?)?|short_version|short version|x\s*\/\s*threads|twitter|threads|telegram_version|telegram(?:\s+version)?|instagram_version|instagram(?:\s+version)?|youtube_version|youtube(?:\s+version)?|hooks|alternative hooks)\b\s*(?:---+)?\s*:?\s*(.*)$/i;
 
   for (const line of lines) {
     const match = line.match(headingRegex);
@@ -70,7 +72,18 @@ const parseSectionsByHeadings = (text: string) => {
       }
     }
 
-    if (current) buckets[current].push(line);
+    if (current) {
+      buckets[current].push(line);
+    } else {
+      preamble.push(line);
+    }
+  }
+
+  // If the model didn't label the LinkedIn section explicitly, treat the
+  // preamble (everything before the first recognized heading) as LinkedIn.
+  if (buckets.LINKEDIN.join("\n").trim().length === 0) {
+    const pre = preamble.join("\n").trim();
+    if (pre.length > 0) buckets.LINKEDIN = [pre];
   }
 
   const hasAny = (Object.keys(buckets) as SectionName[]).some((k) => buckets[k].join("\n").trim().length > 0);
@@ -83,6 +96,42 @@ const parseSectionsByHeadings = (text: string) => {
     youtube: buckets.YOUTUBE_VERSION.join("\n").trim(),
     hooksRaw: buckets.HOOKS.join("\n").trim()
   };
+};
+
+const normalizeLooseHeadingsToDelimiters = (text: string) => {
+  const normalized = text.replace(/\r\n/g, "\n");
+  const lines = normalized.split("\n");
+
+  // Convert decorated heading-style sections into strict delimiter lines.
+  // Example: "**YOUTUBE_VERSION---" -> "---YOUTUBE_VERSION---"
+  const headingRegex = /^\s*(?:[*_]{1,3}\s*)?(linkedin(?:\s+post(?:\s+content)?)?|short_version|short version|x\s*\/\s*threads|twitter|threads|telegram_version|telegram(?:\s+version)?|instagram_version|instagram(?:\s+version)?|youtube_version|youtube(?:\s+version)?|hooks|alternative hooks)\b\s*(?:---+)?\s*:?\s*(.*)$/i;
+
+  const out: string[] = [];
+  for (const line of lines) {
+    const match = line.match(headingRegex);
+    if (!match) {
+      out.push(line);
+      continue;
+    }
+
+    const section = canonicalizeSectionName(match[1]);
+    if (!section || section === "LINKEDIN") {
+      out.push(line);
+      continue;
+    }
+
+    out.push(`---${section}---`);
+    const rest = (match[2] || '').trim();
+    if (rest.length > 0) out.push(rest);
+  }
+
+  return out.join("\n");
+};
+
+const stripMarkdownEmphasis = (text: string | undefined) => {
+  if (!text) return text;
+  // Only intended for places where we render as plain text (e.g. YouTube tab).
+  return text.replace(/\*\*/g, '').replace(/\*/g, '').replace(/__/g, '').replace(/_/g, '');
 };
 
 const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
@@ -292,6 +341,7 @@ OUTPUT RULES:
 - Output valid Markdown only.
 - Do NOT include links.
 - Do NOT use the em dash character ("—"); use '-' or '--' instead.
+- For YOUTUBE_VERSION: do NOT use Markdown emphasis markers (*, **, _). If you want emphasis, use direct Unicode bold/italic characters (e.g., 𝗕𝗢𝗟𝗗, 𝘪𝘵𝘢𝘭𝘪𝘤).
 - Respect character limits for the platforms the user selected.
 
 CHARACTER LIMITS (count every character, including spaces):
@@ -323,7 +373,8 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. If the post mentions a 
 
   const fullText = await callDeepSeek(prompt);
 
-  const parts = fullText.split(/(?:^|\n)\s*---([A-Z_]+)---\s*(?:\n|$)/);
+  const normalizedText = normalizeLooseHeadingsToDelimiters(fullText);
+  const parts = normalizedText.split(/(?:^|\n)\s*---\s*([A-Z_]+)\s*---\s*(?:\n|$)/);
 
   let linkedInContent = parts[0].trim();
   let shortContent: string | undefined;
@@ -355,7 +406,7 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. If the post mentions a 
       }
     }
   } else {
-    const fallback = parseSectionsByHeadings(fullText);
+    const fallback = parseSectionsByHeadings(normalizedText);
     if (fallback.hasAny) {
       if (fallback.linkedIn) linkedInContent = fallback.linkedIn;
       if (fallback.short) shortContent = fallback.short;
@@ -364,6 +415,8 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. If the post mentions a 
       if (fallback.youtube) youtubeContent = fallback.youtube;
     }
   }
+
+  youtubeContent = stripMarkdownEmphasis(youtubeContent);
 
   const shouldEnforce = (p: Platform) => enforcePlatforms.includes(p);
 
@@ -460,7 +513,7 @@ Write a high-impact LinkedIn post that follows the Art Flaneur/Eva voice, but ad
 ALSO, generate a short version (max 280 chars) for X/Threads.
 ALSO, generate a Telegram version (use **bold** for emphasis, [text](url) for hidden links).
 ALSO, generate an Instagram Caption (engaging, more emojis, "link in bio", NO links in text).
-ALSO, generate a YouTube Script Outline (3-5 key bullet points for a video script).
+ALSO, generate a YouTube Script Outline (3-5 key bullet points for a video script). For emphasis inside YOUTUBE_VERSION, do NOT use Markdown ** or *; use direct Unicode bold/italic characters instead (e.g., 𝗕𝗢𝗟𝗗, 𝘪𝘵𝘢𝘭𝘪𝘤).
 ALSO, generate 5 alternative "Hooks" (opening lines) for the LinkedIn post.
 
 ${specificInstructions}
@@ -505,9 +558,11 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources tha
 
   const fullText = await callDeepSeek(prompt);
 
+  const normalizedText = normalizeLooseHeadingsToDelimiters(fullText);
+
   // Primary parser: split by strict delimiters like ---SHORT_VERSION---
   // Matches delimiters potentially surrounded by newlines
-  const parts = fullText.split(/(?:^|\n)\s*---([A-Z_]+)---\s*(?:\n|$)/);
+  const parts = normalizedText.split(/(?:^|\n)\s*---\s*([A-Z_]+)\s*---\s*(?:\n|$)/);
 
   let linkedInContent = parts[0].trim();
   
@@ -585,7 +640,7 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources tha
     }
   } else {
     // Fallback parser: model sometimes ignores delimiters and outputs section headings instead.
-    const fallback = parseSectionsByHeadings(fullText);
+    const fallback = parseSectionsByHeadings(normalizedText);
     if (fallback.hasAny) {
       if (fallback.linkedIn) linkedInContent = processContent(fallback.linkedIn);
       if (fallback.short) shortContent = fallback.short;
@@ -600,6 +655,8 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources tha
       }
     }
   }
+
+  youtubeContent = stripMarkdownEmphasis(youtubeContent);
 
   // Validate and scrub any invalid URLs the model still emitted.
   const allLinks = uniq([
