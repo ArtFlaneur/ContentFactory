@@ -55,10 +55,10 @@ const parseSectionsByHeadings = (text: string) => {
 
   // Matches lines like:
   // LinkedIn
-  // SHORT_VERSION
+  // ## SHORT_VERSION
   // **YOUTUBE_VERSION---
   // Telegram: ...
-  const headingRegex = /^\s*(?:[*_]{1,3}\s*)?(linkedin(?:\s+post(?:\s+content)?)?|short_version|short version|x\s*\/\s*threads|twitter|threads|telegram_version|telegram(?:\s+version)?|instagram_version|instagram(?:\s+version)?|youtube_version|youtube(?:\s+version)?|hooks|alternative hooks)\b\s*(?:---+)?\s*:?\s*(.*)$/i;
+  const headingRegex = /^\s*(?:[#>*\-–•]+\s*)?(?:[*_]{1,3}\s*)?(linkedin(?:\s+post(?:\s+content)?)?|short_version|short version|x\s*\/\s*threads|twitter|threads|telegram_version|telegram(?:\s+version)?|instagram_version|instagram(?:\s+version)?|youtube_version|youtube(?:\s+version)?|hooks|alternative hooks)\b\s*(?:---+)?\s*:?\s*(.*)$/i;
 
   for (const line of lines) {
     const match = line.match(headingRegex);
@@ -104,7 +104,7 @@ const normalizeLooseHeadingsToDelimiters = (text: string) => {
 
   // Convert decorated heading-style sections into strict delimiter lines.
   // Example: "**YOUTUBE_VERSION---" -> "---YOUTUBE_VERSION---"
-  const headingRegex = /^\s*(?:[*_]{1,3}\s*)?(linkedin(?:\s+post(?:\s+content)?)?|short_version|short version|x\s*\/\s*threads|twitter|threads|telegram_version|telegram(?:\s+version)?|instagram_version|instagram(?:\s+version)?|youtube_version|youtube(?:\s+version)?|hooks|alternative hooks)\b\s*(?:---+)?\s*:?\s*(.*)$/i;
+  const headingRegex = /^\s*(?:[#>*\-–•]+\s*)?(?:[*_]{1,3}\s*)?(linkedin(?:\s+post(?:\s+content)?)?|short_version|short version|x\s*\/\s*threads|twitter|threads|telegram_version|telegram(?:\s+version)?|instagram_version|instagram(?:\s+version)?|youtube_version|youtube(?:\s+version)?|hooks|alternative hooks)\b\s*(?:---+)?\s*:?\s*(.*)$/i;
 
   const out: string[] = [];
   for (const line of lines) {
@@ -115,8 +115,15 @@ const normalizeLooseHeadingsToDelimiters = (text: string) => {
     }
 
     const section = canonicalizeSectionName(match[1]);
-    if (!section || section === "LINKEDIN") {
+    if (!section) {
       out.push(line);
+      continue;
+    }
+
+    // We treat LinkedIn as the default preamble; drop explicit LinkedIn headings.
+    if (section === "LINKEDIN") {
+      const rest = (match[2] || '').trim();
+      if (rest.length > 0) out.push(rest);
       continue;
     }
 
@@ -132,6 +139,12 @@ const stripMarkdownEmphasis = (text: string | undefined) => {
   if (!text) return text;
   // Only intended for places where we render as plain text (e.g. YouTube tab).
   return text.replace(/\*\*/g, '').replace(/\*/g, '').replace(/__/g, '').replace(/_/g, '');
+};
+
+const looksUnsplit = (linkedInContent: string, shortContent?: string, telegramContent?: string, instagramContent?: string, youtubeContent?: string) => {
+  const hasAnyOther = Boolean(shortContent || telegramContent || instagramContent || youtubeContent);
+  const containsMarkers = /(SHORT_VERSION|TELEGRAM_VERSION|INSTAGRAM_VERSION|YOUTUBE_VERSION|HOOKS)/i.test(linkedInContent);
+  return !hasAnyOther && containsMarkers;
 };
 
 const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
@@ -405,6 +418,16 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. If the post mentions a 
           break;
       }
     }
+    if (looksUnsplit(linkedInContent, shortContent, telegramContent, instagramContent, youtubeContent)) {
+      const fallback = parseSectionsByHeadings(normalizedText);
+      if (fallback.hasAny) {
+        if (fallback.linkedIn) linkedInContent = fallback.linkedIn;
+        if (fallback.short) shortContent = fallback.short;
+        if (fallback.telegram) telegramContent = fallback.telegram;
+        if (fallback.instagram) instagramContent = fallback.instagram;
+        if (fallback.youtube) youtubeContent = fallback.youtube;
+      }
+    }
   } else {
     const fallback = parseSectionsByHeadings(normalizedText);
     if (fallback.hasAny) {
@@ -640,6 +663,25 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources tha
     }
   } else {
     // Fallback parser: model sometimes ignores delimiters and outputs section headings instead.
+    const fallback = parseSectionsByHeadings(normalizedText);
+    if (fallback.hasAny) {
+      if (fallback.linkedIn) linkedInContent = processContent(fallback.linkedIn);
+      if (fallback.short) shortContent = fallback.short;
+      if (fallback.telegram) telegramContent = fallback.telegram;
+      if (fallback.instagram) instagramContent = fallback.instagram;
+      if (fallback.youtube) youtubeContent = fallback.youtube;
+      if (fallback.hooksRaw) {
+        hooks = fallback.hooksRaw
+          .split("\n")
+          .map((line) => line.replace(/^\d+\.\s*/, "").trim())
+          .filter((line) => line.length > 0);
+      }
+    }
+  }
+
+  // If delimiter parsing “worked” syntactically but still left markers inside
+  // the LinkedIn content, salvage via heading-based parsing.
+  if (looksUnsplit(linkedInContent, shortContent, telegramContent, instagramContent, youtubeContent)) {
     const fallback = parseSectionsByHeadings(normalizedText);
     if (fallback.hasAny) {
       if (fallback.linkedIn) linkedInContent = processContent(fallback.linkedIn);
