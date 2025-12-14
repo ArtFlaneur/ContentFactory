@@ -477,7 +477,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
              <button 
                onClick={handleNext}
                disabled={isSigningUp}
-               className="bg-indigo-600 text-white px-4 py-2 rounded-none border-2 border-black font-medium text-sm hover:bg-indigo-700 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+               className="bg-indigo-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-none border-2 border-black font-medium text-xs sm:text-sm hover:bg-indigo-700 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
              >
                {isSigningUp 
                  ? (isLoginMode ? 'Logging in...' : 'Creating Account...') 
@@ -486,7 +486,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                    : (step === 3 && (initialSettings || userId)) 
                      ? 'Save & Launch' 
                      : 'Next Step'}
-               {!isSigningUp && <ArrowRight className="ml-2 h-4 w-4" />}
+               {!isSigningUp && <ArrowRight className="ml-2 h-3 w-3 sm:h-4 sm:w-4" />}
              </button>
           </div>
         </div>
