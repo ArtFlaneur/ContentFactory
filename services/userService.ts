@@ -1,11 +1,56 @@
 import { supabase } from './supabaseClient';
-import { UserProfile, UserSettings } from '../types';
+import { PostTone, UserProfile, UserSettings } from '../types';
+
+const normalizeUserSettings = (raw: unknown): UserSettings => {
+  const obj = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : {};
+
+  const primaryPlatforms = Array.isArray(obj.primaryPlatforms)
+    ? (obj.primaryPlatforms as UserSettings['primaryPlatforms']).filter(Boolean)
+    : ['linkedin'];
+
+  const targetAudiences = Array.isArray(obj.targetAudiences)
+    ? (obj.targetAudiences as string[]).slice(0, 3)
+    : ['', '', ''];
+
+  return {
+    industry: typeof obj.industry === 'string' ? obj.industry : '',
+    role: typeof obj.role === 'string' ? obj.role : '',
+    country: typeof obj.country === 'string' ? obj.country : '',
+    city: typeof obj.city === 'string' ? obj.city : '',
+    targetAudiences: [targetAudiences[0] || '', targetAudiences[1] || '', targetAudiences[2] || ''],
+    primaryPlatforms: (primaryPlatforms.length > 0 ? primaryPlatforms : ['linkedin']) as UserSettings['primaryPlatforms'],
+    preferredTone: (Object.values(PostTone).includes(obj.preferredTone as PostTone)
+      ? (obj.preferredTone as PostTone)
+      : PostTone.PROFESSIONAL),
+    customCTAs: Array.isArray(obj.customCTAs) ? (obj.customCTAs as string[]).filter((v) => typeof v === 'string') : [],
+    isPro: typeof obj.isPro === 'boolean' ? obj.isPro : undefined
+  };
+};
 
 export const userService = {
+  async ensureProfile(userId: string, email?: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('profiles')
+      .upsert(
+        {
+          id: userId,
+          email: email ?? null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      );
+
+    if (error) {
+      console.error('Error ensuring profile:', error);
+      return false;
+    }
+    return true;
+  },
+
   async getProfile(userId: string): Promise<UserProfile | null> {
     const { data, error } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id,email,is_pro,generation_count,onboarding_completed,settings')
       .eq('id', userId)
       .single();
 
@@ -20,19 +65,37 @@ export const userService = {
       isPro: data.is_pro,
       generationCount: data.generation_count,
       onboardingCompleted: data.onboarding_completed,
-      settings: data.settings as UserSettings
+      settings: normalizeUserSettings(data.settings)
     };
+  },
+
+  async getGenerationCount(userId: string): Promise<number | null> {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('generation_count')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching generation count:', error);
+      return null;
+    }
+
+    return typeof data?.generation_count === 'number' ? data.generation_count : (data?.generation_count ?? 0);
   },
 
   async updateSettings(userId: string, settings: UserSettings) {
     const { error } = await supabase
       .from('profiles')
-      .update({ 
-        settings, 
-        onboarding_completed: true,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', userId);
+      .upsert(
+        {
+          id: userId,
+          settings,
+          onboarding_completed: true,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      );
 
     if (error) throw error;
   },

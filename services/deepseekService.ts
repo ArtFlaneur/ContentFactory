@@ -9,6 +9,77 @@ interface DeepSeekResponse {
   }>;
 }
 
+type SectionName =
+  | "LINKEDIN"
+  | "SHORT_VERSION"
+  | "TELEGRAM_VERSION"
+  | "INSTAGRAM_VERSION"
+  | "YOUTUBE_VERSION"
+  | "HOOKS";
+
+const canonicalizeSectionName = (raw: string): SectionName | null => {
+  const key = raw.trim().toLowerCase();
+
+  if (key === "linkedin" || key === "linkedin post" || key === "linkedin post content") return "LINKEDIN";
+  if (key === "short_version" || key === "short version" || key === "x" || key === "x / threads" || key === "threads" || key === "twitter") {
+    return "SHORT_VERSION";
+  }
+  if (key === "telegram_version" || key === "telegram" || key === "telegram version") return "TELEGRAM_VERSION";
+  if (key === "instagram_version" || key === "instagram" || key === "instagram version") return "INSTAGRAM_VERSION";
+  if (key === "youtube_version" || key === "youtube" || key === "youtube version") return "YOUTUBE_VERSION";
+  if (key === "hooks" || key === "hook" || key === "alt hooks" || key === "alternative hooks") return "HOOKS";
+
+  return null;
+};
+
+const parseSectionsByHeadings = (text: string) => {
+  const normalized = text.replace(/\r\n/g, "\n");
+  const lines = normalized.split("\n");
+
+  const buckets: Record<SectionName, string[]> = {
+    LINKEDIN: [],
+    SHORT_VERSION: [],
+    TELEGRAM_VERSION: [],
+    INSTAGRAM_VERSION: [],
+    YOUTUBE_VERSION: [],
+    HOOKS: []
+  };
+
+  let current: SectionName | null = null;
+
+  // Matches lines like:
+  // LinkedIn
+  // SHORT_VERSION "..."
+  // Telegram: ...
+  const headingRegex = /^\s*(linkedin(?:\s+post(?:\s+content)?)?|short_version|short version|x\s*\/\s*threads|twitter|threads|telegram_version|telegram(?:\s+version)?|instagram_version|instagram(?:\s+version)?|youtube_version|youtube(?:\s+version)?|hooks|alternative hooks)\b\s*:?\s*(.*)$/i;
+
+  for (const line of lines) {
+    const match = line.match(headingRegex);
+    if (match) {
+      const section = canonicalizeSectionName(match[1]);
+      if (section) {
+        current = section;
+        const rest = (match[2] || "").trim();
+        if (rest.length > 0) buckets[current].push(rest);
+        continue;
+      }
+    }
+
+    if (current) buckets[current].push(line);
+  }
+
+  const hasAny = (Object.keys(buckets) as SectionName[]).some((k) => buckets[k].join("\n").trim().length > 0);
+  return {
+    hasAny,
+    linkedIn: buckets.LINKEDIN.join("\n").trim(),
+    short: buckets.SHORT_VERSION.join("\n").trim(),
+    telegram: buckets.TELEGRAM_VERSION.join("\n").trim(),
+    instagram: buckets.INSTAGRAM_VERSION.join("\n").trim(),
+    youtube: buckets.YOUTUBE_VERSION.join("\n").trim(),
+    hooksRaw: buckets.HOOKS.join("\n").trim()
+  };
+};
+
 const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
 const DEEPSEEK_PROXY_PATH = "/api/deepseek";
 const DEEPSEEK_MODEL = "deepseek-chat";
@@ -180,11 +251,11 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources tha
   }
 
   const fullText = data.choices?.[0]?.message?.content?.trim() || "No content generated.";
-  
-  // Robust parsing using regex to split by delimiters
-  // Matches delimiters like ---SECTION_NAME--- potentially surrounded by newlines
+
+  // Primary parser: split by strict delimiters like ---SHORT_VERSION---
+  // Matches delimiters potentially surrounded by newlines
   const parts = fullText.split(/(?:^|\n)\s*---([A-Z_]+)---\s*(?:\n|$)/);
-  
+
   let linkedInContent = parts[0].trim();
   
   // Clean up "Framework Used" line and "[LinkedIn Post Content]" marker
@@ -228,31 +299,52 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources tha
   let youtubeContent: string | undefined;
   let hooks: string[] = [];
 
-  // Iterate through the parts to assign content based on the captured delimiter
-  for (let i = 1; i < parts.length; i += 2) {
-    const sectionName = parts[i];
-    const sectionContent = parts[i + 1]?.trim();
-    
-    if (!sectionContent) continue;
+  const parsedByDelimiters = parts.length > 1;
 
-    switch (sectionName) {
-      case 'SHORT_VERSION':
-        shortContent = sectionContent;
-        break;
-      case 'TELEGRAM_VERSION':
-        telegramContent = sectionContent;
-        break;
-      case 'INSTAGRAM_VERSION':
-        instagramContent = sectionContent;
-        break;
-      case 'YOUTUBE_VERSION':
-        youtubeContent = sectionContent;
-        break;
-      case 'HOOKS':
-        hooks = sectionContent.split("\n")
-          .map(line => line.replace(/^\d+\.\s*/, '').trim())
-          .filter(line => line.length > 0);
-        break;
+  if (parsedByDelimiters) {
+    // Assign content based on captured delimiter
+    for (let i = 1; i < parts.length; i += 2) {
+      const sectionName = parts[i];
+      const sectionContent = parts[i + 1]?.trim();
+
+      if (!sectionContent) continue;
+
+      switch (sectionName) {
+        case "SHORT_VERSION":
+          shortContent = sectionContent;
+          break;
+        case "TELEGRAM_VERSION":
+          telegramContent = sectionContent;
+          break;
+        case "INSTAGRAM_VERSION":
+          instagramContent = sectionContent;
+          break;
+        case "YOUTUBE_VERSION":
+          youtubeContent = sectionContent;
+          break;
+        case "HOOKS":
+          hooks = sectionContent
+            .split("\n")
+            .map((line) => line.replace(/^\d+\.\s*/, "").trim())
+            .filter((line) => line.length > 0);
+          break;
+      }
+    }
+  } else {
+    // Fallback parser: model sometimes ignores delimiters and outputs section headings instead.
+    const fallback = parseSectionsByHeadings(fullText);
+    if (fallback.hasAny) {
+      if (fallback.linkedIn) linkedInContent = processContent(fallback.linkedIn);
+      if (fallback.short) shortContent = fallback.short;
+      if (fallback.telegram) telegramContent = fallback.telegram;
+      if (fallback.instagram) instagramContent = fallback.instagram;
+      if (fallback.youtube) youtubeContent = fallback.youtube;
+      if (fallback.hooksRaw) {
+        hooks = fallback.hooksRaw
+          .split("\n")
+          .map((line) => line.replace(/^\d+\.\s*/, "").trim())
+          .filter((line) => line.length > 0);
+      }
     }
   }
 

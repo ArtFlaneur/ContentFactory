@@ -2,6 +2,7 @@ import React from 'react';
 import { GeneratedPost as GeneratedPostType, UserSettings } from '../types';
 import { Copy, Check, RefreshCw, ExternalLink, Linkedin, Twitter, Send, Instagram, Youtube } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkBreaks from 'remark-breaks';
 
 interface GeneratedPostProps {
   post: GeneratedPostType | null;
@@ -135,7 +136,9 @@ export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, onReset, use
 
         {/* Content Area */}
         <div className="min-h-[200px]">
-            {activeTab === 'linkedin' && <ReactMarkdown>{displayContent(post.content)}</ReactMarkdown>}
+            {activeTab === 'linkedin' && (
+              <ReactMarkdown remarkPlugins={[remarkBreaks]}>{displayContent(post.content)}</ReactMarkdown>
+            )}
             {activeTab === 'twitter' && <div className="whitespace-pre-wrap font-sans text-slate-700">{displayContent(post.shortContent || '')}</div>}
             {activeTab === 'telegram' && <div className="whitespace-pre-wrap font-sans text-slate-700">{displayContent(post.telegramContent || '')}</div>}
             {activeTab === 'instagram' && <div className="whitespace-pre-wrap font-sans text-slate-700">{displayContent(post.instagramContent || '')}</div>}

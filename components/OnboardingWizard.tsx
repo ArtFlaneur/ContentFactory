@@ -7,6 +7,7 @@ interface OnboardingWizardProps {
   onComplete: (settings: UserSettings) => void;
   initialSettings?: UserSettings | null;
   onCancel?: () => void;
+  userId?: string | null;
 }
 
 const STEPS = [
@@ -16,7 +17,7 @@ const STEPS = [
   { id: 4, title: 'Secure Access', icon: Lock, description: 'Save your factory settings' },
 ];
 
-export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, initialSettings, onCancel }) => {
+export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, initialSettings, onCancel, userId }) => {
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,14 +38,20 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
     if (step < 3) {
       setStep(step + 1);
     } else if (step === 3) {
-      if (initialSettings) {
-        // Editing mode, just save
+      if (initialSettings || userId) {
+        // Editing mode or already logged in, just save
         onComplete(settings as UserSettings);
       } else {
         // New user, go to signup
         setStep(4);
       }
     } else if (step === 4) {
+      // If user is already logged in (fallback), just save
+      if (userId) {
+        onComplete(settings as UserSettings);
+        return;
+      }
+
       // Handle Auth
       setIsSigningUp(true);
       setAuthError(null);
@@ -69,15 +76,42 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
         if (error) throw error;
 
         if (data.user) {
-          // Profile creation is handled by Supabase Trigger, but we need to update it with settings
-          // We'll pass the settings to the parent, which will handle the update via userService
-          onComplete(settings as UserSettings);
+          if (isLoginMode) {
+            // If logging in, DO NOT save the wizard settings (which might be empty/default).
+            // Instead, just let the auth state change listener in App.tsx handle the profile loading.
+            // We can optionally show a success message here or just wait for the redirect.
+          } else {
+            // If email confirmation is enabled, Supabase may not return a session yet.
+            // In that case, the user is not actually logged in and we should not proceed.
+            if (!data.session) {
+              setAuthError('Check your email to confirm your account, then log in to continue.');
+              return;
+            }
+            // If signing up, we want to save the settings the user just configured.
+            onComplete(settings as UserSettings);
+          }
         }
       } catch (err: any) {
         setAuthError(err.message);
       } finally {
         setIsSigningUp(false);
       }
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!email) {
+      setAuthError("Please enter your email address first.");
+      return;
+    }
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+      if (error) throw error;
+      alert("Password reset instructions sent to your email!");
+    } catch (err: any) {
+      setAuthError(err.message);
     }
   };
 
@@ -89,8 +123,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
         <div className="bg-indigo-900 p-8 text-white md:w-1/3 flex flex-col justify-between">
           <div>
             <div className="flex items-center space-x-2 mb-8">
-               <Factory className="h-6 w-6" />
-               <span className="font-bold text-xl">Content Factory</span>
+              <Factory className="h-6 w-6" />
+              <span className="font-bold text-xl">Content Factory</span>
             </div>
             <nav className="space-y-6">
               {STEPS.map((s) => (
@@ -116,13 +150,31 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
           <div className="flex-1">
             {step === 1 && (
               <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                <h2 className="text-2xl font-bold text-slate-900">Let's build your factory</h2>
-                <p className="text-slate-500">Tell us about your professional context so we can tune the AI.</p>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900">Let's build your factory</h2>
+                    <p className="text-slate-500">Tell us about your professional context so we can tune the AI.</p>
+                  </div>
+                  {!initialSettings && !userId && (
+                    <button 
+                      onClick={() => {
+                        setStep(4);
+                        setIsLoginMode(true);
+                      }}
+                      className="text-sm text-indigo-600 font-medium hover:text-indigo-800"
+                    >
+                      Already have an account?
+                    </button>
+                  )}
+                </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Industry / Niche</label>
+                  <label htmlFor="industry" className="block text-sm font-medium text-slate-700 mb-1">Industry / Niche</label>
                   <input 
+                    id="industry"
+                    name="industry"
                     type="text" 
+                    autoComplete="organization"
                     className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                     placeholder="e.g. SaaS Marketing, Fine Art, Crypto"
                     value={settings.industry}
@@ -130,9 +182,12 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Your Role</label>
+                  <label htmlFor="role" className="block text-sm font-medium text-slate-700 mb-1">Your Role</label>
                   <input 
+                    id="role"
+                    name="role"
                     type="text" 
+                    autoComplete="organization-title"
                     className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                     placeholder="e.g. Founder, Gallery Owner, CMO"
                     value={settings.role}
@@ -142,9 +197,12 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Country</label>
+                    <label htmlFor="country" className="block text-sm font-medium text-slate-700 mb-1">Country</label>
                     <input 
+                      id="country"
+                      name="country"
                       type="text" 
+                      autoComplete="country-name"
                       className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                       placeholder="e.g. USA, France"
                       value={settings.country || ''}
@@ -152,9 +210,12 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">City</label>
+                    <label htmlFor="city" className="block text-sm font-medium text-slate-700 mb-1">City</label>
                     <input 
+                      id="city"
+                      name="city"
                       type="text" 
+                      autoComplete="address-level2"
                       className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                       placeholder="e.g. New York, Paris"
                       value={settings.city || ''}
@@ -172,8 +233,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                 
                 {[0, 1, 2].map((idx) => (
                   <div key={idx}>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Audience Segment #{idx + 1}</label>
+                    <label htmlFor={`audience-${idx}`} className="block text-sm font-medium text-slate-700 mb-1">Audience Segment #{idx + 1}</label>
                     <input 
+                      id={`audience-${idx}`}
+                      name={`audience-${idx}`}
                       type="text"
                       className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                       placeholder={idx === 0 ? "e.g. High Net Worth Collectors" : idx === 1 ? "e.g. Emerging Artists" : "e.g. Art Fair Directors"}
@@ -203,6 +266,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                     }`}>
                       <input 
                         type="checkbox"
+                        name={`platform-${platform}`}
                         className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"
                         checked={(settings.primaryPlatforms || []).includes(platform as any)}
                         onChange={(e) => {
@@ -238,9 +302,12 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+                  <label htmlFor="auth-email" className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
                   <input 
+                    id="auth-email"
+                    name="email"
                     type="email" 
+                    autoComplete="email"
                     className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                     placeholder="you@company.com"
                     value={email}
@@ -248,9 +315,12 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                  <label htmlFor="auth-password" className="block text-sm font-medium text-slate-700 mb-1">Password</label>
                   <input 
+                    id="auth-password"
+                    name="password"
                     type="password" 
+                    autoComplete={isLoginMode ? 'current-password' : 'new-password'}
                     className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                     placeholder="••••••••"
                     value={password}
@@ -270,14 +340,17 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                   </button>
                   
                   {isLoginMode && (
-                    <button className="text-slate-500 hover:text-slate-700">
+                    <button 
+                      onClick={handleResetPassword}
+                      className="text-slate-500 hover:text-slate-700"
+                    >
                       Forgot password?
                     </button>
                   )}
                 </div>
-
+                
                 {!isLoginMode && (
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-400 mt-4">
                     By creating an account, you agree to our Terms of Service.
                   </p>
                 )}
@@ -289,7 +362,15 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
              <div className="flex items-center space-x-4">
                {step > 1 ? (
                   <button 
-                    onClick={() => setStep(step - 1)}
+                    onClick={() => {
+                      if (step === 4 && isLoginMode && !initialSettings) {
+                        // If we jumped to login from step 1, go back to step 1
+                        setStep(1);
+                        setIsLoginMode(false);
+                      } else {
+                        setStep(step - 1);
+                      }
+                    }}
                     className="text-slate-500 hover:text-slate-800 font-medium px-4 py-2"
                   >
                     Back
@@ -313,8 +394,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                  ? (isLoginMode ? 'Logging in...' : 'Creating Account...') 
                  : step === 4 
                    ? (isLoginMode ? 'Log In & Launch' : 'Create Account & Launch') 
-                   : (step === 3 && initialSettings) 
-                     ? 'Save Changes' 
+                   : (step === 3 && (initialSettings || userId)) 
+                     ? 'Save & Launch' 
                      : 'Next Step'}
                {!isSigningUp && <ArrowRight className="ml-2 h-4 w-4" />}
              </button>
