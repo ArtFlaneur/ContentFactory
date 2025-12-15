@@ -460,14 +460,14 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                         setStep(step - 1);
                       }
                     }}
-                    className="text-slate-800 hover:text-slate-900 font-medium px-4 py-2 border-2 border-black rounded-none bg-white hover:bg-slate-50"
+                    className="text-slate-800 hover:text-slate-900 font-medium px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm border-2 border-black rounded-none bg-white hover:bg-slate-50 inline-flex items-center justify-center h-9 sm:h-10"
                   >
                     Back
                   </button>
                ) : onCancel ? (
                   <button 
                     onClick={onCancel}
-                    className="text-slate-800 hover:text-red-700 font-medium px-4 py-2 border-2 border-black rounded-none bg-white hover:bg-slate-50"
+                    className="text-slate-800 hover:text-red-700 font-medium px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm border-2 border-black rounded-none bg-white hover:bg-slate-50 inline-flex items-center justify-center h-9 sm:h-10"
                   >
                     Cancel
                   </button>
@@ -477,7 +477,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
              <button 
                onClick={handleNext}
                disabled={isSigningUp}
-               className="bg-indigo-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-none border-2 border-black font-medium text-xs sm:text-sm hover:bg-indigo-700 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+               className="bg-indigo-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-none border-2 border-black font-medium text-xs sm:text-sm hover:bg-indigo-700 transition-colors inline-flex items-center justify-center h-9 sm:h-10 disabled:opacity-50 disabled:cursor-not-allowed"
              >
                {isSigningUp 
                  ? (isLoginMode ? 'Logging in...' : 'Creating Account...') 

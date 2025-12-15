@@ -90,7 +90,7 @@ export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, isLoading, s
     <button
       onClick={() => setActiveTab(id)}
       disabled={disabled}
-      className={`flex items-center px-3 py-2 text-sm font-medium rounded-none transition-colors ${
+      className={`flex flex-1 justify-center sm:flex-none sm:justify-start items-center px-3 py-2 text-sm font-medium rounded-none transition-colors ${
         activeTab === id
           ? 'text-slate-900 bg-amber-50'
           : disabled
@@ -122,7 +122,7 @@ export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, isLoading, s
       </div>
 
       {/* Tabs */}
-      <div className="flex px-4 border-b-2 border-black overflow-x-auto bg-white">
+      <div className="flex px-0 sm:px-4 border-b-2 border-black bg-white">
         {visibleTabs.includes('linkedin') && renderTabButton('linkedin', <Linkedin size={16} />, 'LinkedIn', false)}
         {visibleTabs.includes('twitter') && renderTabButton('twitter', <Twitter size={16} />, 'X / Threads', !post.shortContent)}
         {visibleTabs.includes('telegram') && renderTabButton('telegram', <Send size={16} />, 'Telegram', !post.telegramContent)}
