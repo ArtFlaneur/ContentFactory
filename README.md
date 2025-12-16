@@ -15,6 +15,6 @@ View your app in AI Studio: https://ai.studio/apps/drive/1yl5l6j2JBs0ypj0bTehgfK
 
 1. Install dependencies:
    `npm install`
-2. Set the `DEEPSEEK_API_KEY` in [.env.local](.env.local) to your DeepSeek API key. The Vite dev/preview server exposes a `/api/deepseek` proxy that injects this key server-side, so the browser never sees it.
+2. Set the `ANTHROPIC_API_KEY` in [.env.local](.env.local) to your Azure Anthropic API key. The Vite dev/preview server exposes a `/api/deepseek` proxy that injects this key server-side, so the browser never sees it.
 3. Run the app:
    `npm run dev`

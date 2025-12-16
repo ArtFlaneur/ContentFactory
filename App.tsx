@@ -711,7 +711,7 @@ const App: React.FC = () => {
              <div className="mb-6 bg-amber-50 border-2 border-black rounded-none p-4 text-sm text-amber-900 flex items-start">
                 <span className="mr-2">⚠️</span>
                 <span>
-              <strong>Missing API Key:</strong> Configure <code>DEEPSEEK_API_KEY</code> in your server environment (.env.local) so the local proxy can authenticate requests.
+              <strong>Missing API Key:</strong> Configure <code>ANTHROPIC_API_KEY</code> in your server environment (.env.local) so the local proxy can authenticate requests.
                 </span>
             </div>
         )}

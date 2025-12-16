@@ -3,7 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'http';
 import { defineConfig, loadEnv, type PluginOption } from 'vite';
 import react from '@vitejs/plugin-react';
 
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
+const ANTHROPIC_API_URL = 'https://eva-mj6ah3dq-eastus2.services.ai.azure.com/anthropic/v1/messages';
 
 type NextFunction = (err?: unknown) => void;
 type MiddlewareHandler = (req: IncomingMessage, res: ServerResponse, next: NextFunction) => void;
@@ -38,17 +38,18 @@ const createDeepseekMiddleware = (apiKey: string): MiddlewareHandler => {
     if (!apiKey) {
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: 'DeepSeek API key is not configured on the dev server.' }));
+      res.end(JSON.stringify({ error: 'Anthropic API key is not configured on the dev server.' }));
       return;
     }
 
     try {
       const body = await readRequestBody(req);
-      const upstream = await fetch(DEEPSEEK_API_URL, {
+      const upstream = await fetch(ANTHROPIC_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
         },
         body
       });
@@ -59,10 +60,10 @@ const createDeepseekMiddleware = (apiKey: string): MiddlewareHandler => {
       res.setHeader('Content-Type', contentType);
       res.end(responseBody);
     } catch (error) {
-      console.error('DeepSeek proxy error:', error);
+      console.error('Anthropic proxy error:', error);
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: 'DeepSeek proxy request failed. Check server logs for details.' }));
+      res.end(JSON.stringify({ error: 'Anthropic proxy request failed. Check server logs for details.' }));
     }
   };
 };
@@ -191,15 +192,15 @@ const deepseekProxyPlugin = (apiKey: string): PluginOption => {
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
-    const deepseekKey = env.DEEPSEEK_API_KEY || env.VITE_DEEPSEEK_API_KEY || '';
+    const anthropicKey = env.ANTHROPIC_API_KEY || env.VITE_ANTHROPIC_API_KEY || '';
     return {
       server: {
         port: 3000,
         host: '0.0.0.0',
       },
-      plugins: [react(), deepseekProxyPlugin(deepseekKey)],
+      plugins: [react(), deepseekProxyPlugin(anthropicKey)],
       define: {
-        __HAS_DEEPSEEK_KEY__: JSON.stringify(Boolean(deepseekKey))
+        __HAS_DEEPSEEK_KEY__: JSON.stringify(Boolean(anthropicKey))
       },
       resolve: {
         alias: {

@@ -134,18 +134,27 @@ export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, isLoading, s
         
         {/* Alternative Hooks Section - Only for LinkedIn */}
         {activeTab === 'linkedin' && post.alternativeHooks && post.alternativeHooks.length > 0 && (
-          <div className="mb-6 p-4 bg-indigo-50 rounded-none border-2 border-black not-prose">
+          <div className="mb-4 p-4 bg-indigo-50 rounded-none border-2 border-black not-prose">
             <h4 className="text-xs font-bold text-indigo-800 uppercase tracking-wide mb-2">🧪 Hook Lab (Alternative Openers)</h4>
             <ul className="space-y-2">
               {post.alternativeHooks.map((hook, idx) => (
-                <li key={idx} className="text-sm text-indigo-900 flex items-start group cursor-pointer hover:bg-indigo-100 p-1.5 rounded-none transition-colors"
-                    onClick={() => {
-                        navigator.clipboard.writeText(cleanText(hook));
+                <li key={idx} className="text-sm text-indigo-900 flex items-start group hover:bg-indigo-100 p-1.5 rounded-none transition-colors relative">
+                  <span className="text-indigo-400 mr-2 font-mono text-xs mt-0.5 select-none">{idx + 1}.</span>
+                  <span className="flex-1 select-text cursor-text">{displayContent(hook)}</span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigator.clipboard.writeText(cleanText(hook));
+                      const btn = e.currentTarget;
+                      const originalText = btn.textContent;
+                      btn.textContent = '✓';
+                      setTimeout(() => btn.textContent = originalText || '', 1500);
                     }}
-                    title="Click to copy hook"
-                >
-                  <span className="text-indigo-400 mr-2 font-mono text-xs mt-0.5">{idx + 1}.</span>
-                  <span>{displayContent(hook)}</span>
+                    className="ml-2 px-2 py-0.5 text-xs bg-indigo-200 hover:bg-indigo-300 text-indigo-800 rounded-none border border-indigo-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                    title="Copy hook"
+                  >
+                    Copy
+                  </button>
                 </li>
               ))}
             </ul>

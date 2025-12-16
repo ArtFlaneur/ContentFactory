@@ -2,6 +2,10 @@ import { Category, PostRequest, GeneratedPost, SourceLink } from "../types";
 import { SYSTEM_CONTEXT } from "../constants";
 
 interface DeepSeekResponse {
+  content?: Array<{
+    text?: string;
+    type?: string;
+  }>;
   choices?: Array<{
     message?: {
       content?: string;
@@ -147,24 +151,26 @@ const looksUnsplit = (linkedInContent: string, shortContent?: string, telegramCo
   return !hasAnyOther && containsMarkers;
 };
 
-const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
-const DEEPSEEK_PROXY_PATH = "/api/deepseek";
-const DEEPSEEK_MODEL = "deepseek-chat";
+const ANTHROPIC_API_URL = "https://eva-mj6ah3dq-eastus2.services.ai.azure.com/anthropic/v1/messages";
+const ANTHROPIC_PROXY_PATH = "/api/deepseek";
+const ANTHROPIC_MODEL = "claude-opus-4-5";
+const ANTHROPIC_API_VERSION = "2023-06-01";
 
 const isServer = typeof window === "undefined";
-const getEndpoint = () => (isServer ? DEEPSEEK_API_URL : DEEPSEEK_PROXY_PATH);
+const getEndpoint = () => (isServer ? ANTHROPIC_API_URL : ANTHROPIC_PROXY_PATH);
 
 const getRequestHeaders = (): Record<string, string> => {
   const headers: Record<string, string> = {
-    "Content-Type": "application/json"
+    "Content-Type": "application/json",
+    "anthropic-version": ANTHROPIC_API_VERSION
   };
 
   if (isServer) {
-    const apiKey = process.env?.DEEPSEEK_API_KEY || process.env?.API_KEY;
+    const apiKey = process.env?.ANTHROPIC_API_KEY || process.env?.API_KEY;
     if (!apiKey) {
-      throw new Error("DeepSeek API key is not configured on the server environment.");
+      throw new Error("Anthropic API key is not configured on the server environment.");
     }
-    headers.Authorization = `Bearer ${apiKey}`;
+    headers["x-api-key"] = apiKey;
   }
 
   return headers;
@@ -254,10 +260,11 @@ const scrubInvalidUrlLines = (text: string | undefined, invalidUrls: string[]) =
 
 const callDeepSeek = async (prompt: string) => {
   const body = {
-    model: DEEPSEEK_MODEL,
+    model: ANTHROPIC_MODEL,
+    max_tokens: 4096,
     temperature: 0.7,
+    system: SYSTEM_CONTEXT,
     messages: [
-      { role: "system", content: SYSTEM_CONTEXT },
       { role: "user", content: prompt }
     ]
   };
@@ -275,23 +282,23 @@ const callDeepSeek = async (prompt: string) => {
     rawResponse = await response.text();
 
     if (!response.ok) {
-      console.error("DeepSeek API Error:", rawResponse);
+      console.error("Anthropic API Error:", rawResponse);
       throw new Error("Failed to generate post. Please check your API key or try again.");
     }
   } catch (error) {
-    console.error("DeepSeek Request Error:", error);
-    throw new Error("Failed to contact DeepSeek. Ensure the local proxy server is running and the API key is configured.");
+    console.error("Anthropic Request Error:", error);
+    throw new Error("Failed to contact Anthropic. Ensure the local proxy server is running and the API key is configured.");
   }
 
   let data: DeepSeekResponse;
   try {
     data = JSON.parse(rawResponse) as DeepSeekResponse;
   } catch (parseError) {
-    console.error("DeepSeek Response Parse Error:", parseError, rawResponse);
-    throw new Error("Received an unexpected response from DeepSeek.");
+    console.error("Anthropic Response Parse Error:", parseError, rawResponse);
+    throw new Error("Received an unexpected response from Anthropic.");
   }
 
-  return data.choices?.[0]?.message?.content?.trim() || "No content generated.";
+  return data.content?.[0]?.text?.trim() || data.choices?.[0]?.message?.content?.trim() || "No content generated.";
 };
 
 type Platform = 'linkedin' | 'twitter' | 'telegram' | 'instagram' | 'youtube';
