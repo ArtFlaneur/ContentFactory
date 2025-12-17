@@ -1,0 +1,77 @@
+# Make Content - AI Social Media Post Generator
+
+> Turn your ideas into engaging social media posts in seconds
+
+## About
+
+Make Content is an AI-powered tool that transforms ideas into ready-to-publish social media posts. Instead of staring at a blank screen, users select from 70+ proven content frameworks and let AI do the structuring.
+
+## The Problem We Solve
+
+You know your topic. You have expertise. But turning that into an engaging post takes time you don't have. Make Content bridges the gap between "I know what to say" and "I don't know how to structure it."
+
+## Target Audience
+
+- Founders and entrepreneurs building personal brands
+- Consultants and coaches who need content to attract clients  
+- Marketers managing multiple social accounts
+- Experts and thought leaders sharing knowledge
+- Freelancers promoting their services
+- Anyone who creates professional content regularly
+
+## Key Features
+
+### 70+ Content Frameworks
+Proven post structures organized in 11 categories:
+- Harsh Truths ("5 Harsh Truths", "Perception vs Reality")
+- Personal Journey ("The Day That Changed Everything", "Biggest Failure")
+- Leadership & Management ("What Great Leaders Never Say")
+- Problem Solving ("How We Solved It", "Warning Signs")
+- Growth & Development ("Skills That Matter More")
+- Client Relations ("What Clients Actually Want", "Red Flags")
+- Innovation & Change ("Small Changes, Big Results")
+- Productivity & Systems ("Metrics That Matter")
+- Money & Value ("Pricing Secrets", "Hidden Costs")
+- Red/Green Flags
+- News (curated industry updates)
+
+### Multi-Platform Output
+One input generates optimized posts for:
+- LinkedIn (full professional post)
+- X/Twitter (short-form version)
+- Telegram (channel-style content)
+- Instagram (caption format)
+- YouTube (video descriptions)
+
+### Full Customization
+- Set your industry and role
+- Define your target audience (up to 3)
+- Choose preferred tone: Professional, Rant, Empathic, Analytical, or Storyteller
+- Select post goal: Engagement, Newsletter signup, Consultation booking, Event invitation, or Authority building
+
+### Generation History
+All your posts are saved for future reference and reuse.
+
+## How It Works
+
+1. Complete onboarding (industry, audience, platforms)
+2. Enter your topic or idea
+3. Select a category and framework
+4. Choose tone and goal
+5. Get ready-to-publish posts for all your platforms
+
+## Technical Details
+
+- Web-based (no installation)
+- Works in any modern browser
+- Mobile-friendly
+- Free tier available
+
+## Contact
+
+Website: https://makecontent.pro/
+Email: hello@makecontent.pro
+
+## Keywords
+
+AI post generator, LinkedIn content, social media writing, content frameworks, personal branding, thought leadership, multi-platform content, professional networking, content creation tool, AI writing assistant

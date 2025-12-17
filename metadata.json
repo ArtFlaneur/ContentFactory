@@ -1,5 +1,23 @@
 {
   "name": "Make Content",
-  "description": "A specialized AI tool for generating high-impact LinkedIn posts for the Cultural Systems & Art Tech sector using 80 specific frameworks.",
+  "short_name": "MakeContent",
+  "description": "Turn your ideas into engaging social media posts in seconds. 70+ proven content frameworks for LinkedIn, X, Telegram, Instagram and YouTube. Built for founders, experts, marketers and anyone building their personal brand.",
+  "version": "1.0.0",
+  "author": "Make Content Team",
+  "homepage": "https://makecontent.pro/",
+  "keywords": [
+    "ai post generator",
+    "linkedin post generator",
+    "social media content",
+    "content frameworks",
+    "personal branding",
+    "thought leadership",
+    "twitter posts",
+    "telegram content",
+    "instagram captions",
+    "ai writing tool"
+  ],
+  "category": "Business",
+  "language": "en",
   "requestFramePermissions": []
 }

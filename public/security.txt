@@ -1,0 +1,7 @@
+# Security Policy for Make Content
+# https://makecontent.pro/
+
+Contact: mailto:security@makecontent.pro
+Expires: 2025-12-31T23:59:00.000Z
+Preferred-Languages: en
+Canonical: https://makecontent.pro/.well-known/security.txt

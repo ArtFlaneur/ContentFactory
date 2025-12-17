@@ -1,0 +1,14 @@
+/* TEAM */
+Creator: Make Content Team
+Site: https://makecontent.pro/
+Location: Global
+
+/* SITE */
+Last update: 2024/12/17
+Standards: HTML5, CSS3, JavaScript ES6+
+Components: React, Tailwind CSS, Vite
+Software: VS Code, GitHub
+
+/* THANKS */
+Thanks to all cultural professionals, museum marketers, and art tech innovators 
+who inspire us to build better tools for the creative industries.
