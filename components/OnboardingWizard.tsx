@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { UserSettings, PostTone } from '../types';
-import { Factory, Users, Share2, ArrowRight, Check, Lock, LogOut } from 'lucide-react';
+import { UserSettings, PostTone, OrganizationInfo } from '../types';
+import { Factory, Users, Share2, ArrowRight, Check, Lock, LogOut, Building2 } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
 import { getAppBaseUrl } from '../services/appUrl';
 import { storage } from '../services/storage';
@@ -369,6 +369,141 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, 
                       <span className="ml-3 font-medium capitalize">{platform}</span>
                     </label>
                   ))}
+                </div>
+
+                {/* Organization Info Section */}
+                <div className="mt-8 pt-6 border-t-2 border-slate-200 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-indigo-600" />
+                    <h3 className="text-lg font-bold text-slate-900">Organization Info</h3>
+                    <span className="text-xs text-slate-500">(Optional - for Press Releases)</span>
+                  </div>
+                  <p className="text-sm text-slate-600">
+                    Fill this if you create press releases or official announcements. This data will be auto-inserted in your press releases.
+                  </p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="org-name" className="block text-sm font-medium text-slate-700 mb-1">
+                        Organization Name
+                      </label>
+                      <input 
+                        id="org-name"
+                        type="text"
+                        className="w-full p-2 border-2 border-black rounded-none focus:ring-2 focus:ring-indigo-600 outline-none bg-white text-sm"
+                        placeholder="e.g. Modern Art Gallery"
+                        value={settings.organizationInfo?.name || ''}
+                        onChange={e => setSettings({
+                          ...settings, 
+                          organizationInfo: {...(settings.organizationInfo || {} as OrganizationInfo), name: e.target.value}
+                        })}
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="org-website" className="block text-sm font-medium text-slate-700 mb-1">
+                        Website
+                      </label>
+                      <input 
+                        id="org-website"
+                        type="url"
+                        className="w-full p-2 border-2 border-black rounded-none focus:ring-2 focus:ring-indigo-600 outline-none bg-white text-sm"
+                        placeholder="https://gallery.com"
+                        value={settings.organizationInfo?.website || ''}
+                        onChange={e => setSettings({
+                          ...settings, 
+                          organizationInfo: {...(settings.organizationInfo || {} as OrganizationInfo), website: e.target.value}
+                        })}
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="org-city" className="block text-sm font-medium text-slate-700 mb-1">
+                        City
+                      </label>
+                      <input 
+                        id="org-city"
+                        type="text"
+                        className="w-full p-2 border-2 border-black rounded-none focus:ring-2 focus:ring-indigo-600 outline-none bg-white text-sm"
+                        placeholder="e.g. New York"
+                        value={settings.organizationInfo?.city || ''}
+                        onChange={e => setSettings({
+                          ...settings, 
+                          organizationInfo: {...(settings.organizationInfo || {} as OrganizationInfo), city: e.target.value}
+                        })}
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="org-country" className="block text-sm font-medium text-slate-700 mb-1">
+                        Country
+                      </label>
+                      <input 
+                        id="org-country"
+                        type="text"
+                        className="w-full p-2 border-2 border-black rounded-none focus:ring-2 focus:ring-indigo-600 outline-none bg-white text-sm"
+                        placeholder="e.g. USA"
+                        value={settings.organizationInfo?.country || ''}
+                        onChange={e => setSettings({
+                          ...settings, 
+                          organizationInfo: {...(settings.organizationInfo || {} as OrganizationInfo), country: e.target.value}
+                        })}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="org-description" className="block text-sm font-medium text-slate-700 mb-1">
+                      About Organization (Boilerplate)
+                    </label>
+                    <textarea 
+                      id="org-description"
+                      rows={3}
+                      className="w-full p-2 border-2 border-black rounded-none focus:ring-2 focus:ring-indigo-600 outline-none bg-white text-sm"
+                      placeholder="Brief description of your organization for press releases (2-3 sentences)"
+                      value={settings.organizationInfo?.description || ''}
+                      onChange={e => setSettings({
+                        ...settings, 
+                        organizationInfo: {...(settings.organizationInfo || {} as OrganizationInfo), description: e.target.value}
+                      })}
+                    />
+                  </div>
+
+                  <div className="bg-indigo-50 p-3 border-2 border-indigo-200 rounded-none">
+                    <p className="text-xs font-semibold text-indigo-900 mb-2">Media Contact (for Press Releases)</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <input 
+                        type="text"
+                        className="p-2 border-2 border-black rounded-none focus:ring-2 focus:ring-indigo-600 outline-none bg-white text-xs"
+                        placeholder="Contact Name"
+                        value={settings.organizationInfo?.contactName || ''}
+                        onChange={e => setSettings({
+                          ...settings, 
+                          organizationInfo: {...(settings.organizationInfo || {} as OrganizationInfo), contactName: e.target.value}
+                        })}
+                      />
+                      <input 
+                        type="email"
+                        className="p-2 border-2 border-black rounded-none focus:ring-2 focus:ring-indigo-600 outline-none bg-white text-xs"
+                        placeholder="contact@gallery.com"
+                        value={settings.organizationInfo?.contactEmail || ''}
+                        onChange={e => setSettings({
+                          ...settings, 
+                          organizationInfo: {...(settings.organizationInfo || {} as OrganizationInfo), contactEmail: e.target.value}
+                        })}
+                      />
+                      <input 
+                        type="tel"
+                        className="p-2 border-2 border-black rounded-none focus:ring-2 focus:ring-indigo-600 outline-none bg-white text-xs"
+                        placeholder="+1 234 567 8900"
+                        value={settings.organizationInfo?.contactPhone || ''}
+                        onChange={e => setSettings({
+                          ...settings, 
+                          organizationInfo: {...(settings.organizationInfo || {} as OrganizationInfo), contactPhone: e.target.value}
+                        })}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

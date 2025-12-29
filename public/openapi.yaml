@@ -1,0 +1,162 @@
+openapi: 3.0.3
+info:
+  title: ContentFactory API
+  version: 1.0.0
+  description: |
+    Public endpoints exposed by ContentFactory. The `/api/deepseek` route is a proxy for
+    Azure-hosted Anthropic Claude models and mirrors the native Anthropic Messages API. The `/api/validate`
+    route checks that provided source URLs are reachable before they are injected into prompts.
+servers:
+  - url: https://makecontent.pro
+paths:
+  /api/deepseek:
+    post:
+      summary: Proxy Anthropic Claude API (Azure)
+      description: |
+        Forwards the payload to the configured Azure-hosted Anthropic Claude endpoint. Supply the exact
+        JSON body you would normally send to Anthropic's `v1/messages` API. The proxy injects the
+        Azure key and `anthropic-version` header, then streams back the raw response.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnthropicMessageRequest'
+      responses:
+        '200':
+          description: Anthropic response payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnthropicMessageResponse'
+        '4XX':
+          description: Error returned either by the proxy or by Anthropic
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/validate:
+    post:
+      summary: Validate external source URLs
+      description: |
+        Accepts up to 20 URLs and performs `HEAD`/`GET` probes to confirm reachability. Results are
+        grouped into `valid`, `invalid`, and a detailed `results` array describing HTTP status or
+        network errors.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateRequest'
+      responses:
+        '200':
+          description: Validation summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateResponse'
+        '4XX':
+          description: Invalid input payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    AnthropicMessageRequest:
+      type: object
+      required:
+        - model
+        - messages
+      properties:
+        model:
+          type: string
+          description: Anthropic model name configured inside Azure (e.g., `claude-3-opus`)
+        messages:
+          type: array
+          items:
+            type: object
+            required:
+              - role
+              - content
+            properties:
+              role:
+                type: string
+                enum: [system, user, assistant]
+              content:
+                oneOf:
+                  - type: string
+                  - type: array
+                    items:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                        text:
+                          type: string
+        temperature:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        max_tokens:
+          type: integer
+          minimum: 1
+        top_p:
+          type: number
+          format: float
+        metadata:
+          type: object
+          additionalProperties: true
+    AnthropicMessageResponse:
+      type: object
+      description: Direct passthrough of the Anthropic Messages API response.
+      additionalProperties: true
+    ValidateRequest:
+      type: object
+      properties:
+        urls:
+          type: array
+          items:
+            type: string
+            format: uri
+          maxItems: 20
+      required:
+        - urls
+    ValidateResponse:
+      type: object
+      properties:
+        valid:
+          type: array
+          items:
+            type: string
+            format: uri
+        invalid:
+          type: array
+          items:
+            type: string
+            format: uri
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+              ok:
+                type: boolean
+              status:
+                type: integer
+                nullable: true
+              finalUrl:
+                type: string
+                nullable: true
+              reason:
+                type: string
+                nullable: true
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Human-readable error message

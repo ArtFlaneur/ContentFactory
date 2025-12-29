@@ -4,11 +4,14 @@ import { GeneratedPost } from './components/GeneratedPost';
 import { OnboardingWizard } from './components/OnboardingWizard';
 import { PaymentModal } from './components/PaymentModal';
 import { HistoryPanel } from './components/HistoryPanel';
-import { HistoryItem, PostRequest, GeneratedPost as GeneratedPostType, UserSettings } from './types';
+import { OrganizationProfilePanel } from './components/OrganizationProfilePanel';
+import { SharePreview, SharePreviewError } from './components/SharePreview';
+import { HistoryItem, HistoryRequestSnapshot, OrganizationInfo, PostRequest, GeneratedPost as GeneratedPostType, SharePayload, UserSettings } from './types';
 import { generateLinkedInPost } from './services/deepseekService';
 import { userService } from './services/userService';
 import { supabase } from './services/supabaseClient';
 import { storage } from './services/storage';
+import { decodeSharePayload } from './services/shareLink';
 import { Factory, Settings, Zap, Clock, LogOut } from 'lucide-react';
 
 declare const __HAS_DEEPSEEK_KEY__: boolean;
@@ -72,6 +75,36 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'generate' | 'history'>('generate');
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
 
+  const { payload: sharePayload, error: shareError } = React.useMemo(() => {
+    if (typeof window === 'undefined') {
+      return { payload: null as SharePayload | null, error: null as string | null };
+    }
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('share');
+    if (!token) {
+      return { payload: null as SharePayload | null, error: null as string | null };
+    }
+    const decoded = decodeSharePayload(token);
+    if (!decoded) {
+      return {
+        payload: null as SharePayload | null,
+        error: 'This share link is invalid or has expired.'
+      };
+    }
+    return { payload: decoded, error: null as string | null };
+  }, []);
+
+  const isShareMode = Boolean(sharePayload);
+
+  const exitShareMode = React.useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('share');
+    const search = url.searchParams.toString();
+    const next = `${url.origin}${url.pathname}${search ? `?${search}` : ''}${url.hash}`;
+    window.location.replace(next);
+  }, []);
+
   const FREE_LIMIT = 3;
 
   const getHistoryKey = (uid: string | null) => `cf_history_${uid || 'anon'}`;
@@ -95,7 +128,9 @@ const App: React.FC = () => {
     }
   }, []);
 
+
   React.useEffect(() => {
+    if (isShareMode) return;
     let cancelled = false;
 
     // Guest history stays local.
@@ -120,10 +155,13 @@ const App: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [userId, loadHistory, saveHistory]);
+  }, [userId, loadHistory, saveHistory, isShareMode]);
+
+  
 
   // Hydrate user session + profile on startup and on auth changes.
   React.useEffect(() => {
+    if (isShareMode) return;
     let cancelled = false;
 
     const hydrate = async (session: any, reason: string) => {
@@ -349,7 +387,7 @@ const App: React.FC = () => {
       window.clearTimeout(initTimeout);
       subscription.unsubscribe();
     };
-  }, []);
+  }, [isShareMode]);
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
@@ -425,7 +463,8 @@ const App: React.FC = () => {
         country: userSettings.country,
         city: userSettings.city,
         targetAudience: request.audience // Use the selected audience
-      } : undefined
+      } : undefined,
+      organizationInfo: userSettings?.organizationInfo // Pass organization info for press releases
     };
 
     setIsLoading(true);
@@ -435,15 +474,23 @@ const App: React.FC = () => {
       setCurrentPost(result);
 
       // Persist to history
+      const requestSnapshot: HistoryRequestSnapshot = {
+        topic: request.topic,
+        audience: request.audience,
+        category: request.category,
+        goal: request.goal,
+        tone: request.tone,
+        language: request.language,
+        frameworkId: request.frameworkId,
+        includeNews: Boolean(request.includeNews),
+        sourceUrls: request.sourceUrls && request.sourceUrls.length > 0
+          ? [...request.sourceUrls]
+          : undefined
+      };
+
+
       const historyPayload = {
-        request: {
-          topic: request.topic,
-          audience: request.audience,
-          category: request.category,
-          goal: request.goal,
-          tone: request.tone,
-          includeNews: request.includeNews
-        } as HistoryItem['request'],
+        request: requestSnapshot,
         post: result
       };
 
@@ -542,8 +589,51 @@ const App: React.FC = () => {
       setGenerationStatus(null);
   };
 
+  const handleOrganizationSave = React.useCallback(async (nextInfo?: OrganizationInfo) => {
+    if (!userSettings) return;
+    const previousSettings = userSettings;
+    const updatedSettings: UserSettings = { ...userSettings };
+
+    if (nextInfo) {
+      updatedSettings.organizationInfo = nextInfo;
+    } else {
+      delete (updatedSettings as Partial<UserSettings>).organizationInfo;
+    }
+
+    setUserSettings(updatedSettings);
+
+    try {
+      if (userId) {
+        await userService.updateSettings(userId, updatedSettings);
+        try {
+          storage.setItem(`user_settings_${userId}`, JSON.stringify(updatedSettings));
+        } catch {
+          // ignore cache errors
+        }
+      } else {
+        try {
+          storage.setItem('guest_user_settings', JSON.stringify(updatedSettings));
+        } catch {
+          // ignore cache errors
+        }
+      }
+    } catch (orgErr) {
+      console.error('Failed to save organization info:', orgErr);
+      setUserSettings(previousSettings);
+      if (userId) {
+        try {
+          storage.setItem(`user_settings_${userId}`, JSON.stringify(previousSettings));
+        } catch {
+          // ignore cache errors
+        }
+      }
+      throw orgErr;
+    }
+  }, [userId, userSettings]);
+
   // Check for payment success on mount
   React.useEffect(() => {
+    if (isShareMode) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment_success') === 'true' && userId) {
       // Stripe webhook is the source of truth for Pro upgrades.
@@ -551,15 +641,34 @@ const App: React.FC = () => {
       window.history.replaceState({}, '', window.location.pathname);
       alert("🎉 Payment successful! Your Pro access will activate shortly.");
     }
-  }, [userId]);
+  }, [userId, isShareMode]);
 
   const handleUpgrade = () => {
     if (!userId) return;
     
     // Pass userId as client_reference_id for future webhook matching
-    const paymentLink = `https://buy.stripe.com/bJe28q0Kv4bF3fAeOr1Nu07?client_reference_id=${userId}`;
+    const basePaymentLink = import.meta.env.VITE_STRIPE_PAYMENT_LINK || 'https://buy.stripe.com/bJe28q0Kv4bF3fAeOr1Nu07';
+    const paymentLink = `${basePaymentLink}?client_reference_id=${userId}`;
     window.location.href = paymentLink;
   };
+
+  if (sharePayload) {
+    return (
+      <SharePreview
+        payload={sharePayload}
+        onExit={exitShareMode}
+      />
+    );
+  }
+
+  if (shareError) {
+    return (
+      <SharePreviewError
+        message={shareError}
+        onExit={exitShareMode}
+      />
+    );
+  }
 
   if (isAuthInitializing) {
     return (
@@ -578,7 +687,7 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen flex flex-col bg-slate-50">
         <div className="flex-grow flex items-center justify-center">
-          <div className="w-full max-w-2xl md:max-w-3xl lg:max-w-4xl px-4">
+          <div className="w-full max-w-3xl md:max-w-4xl lg:max-w-6xl px-4">
             {error && (
               <div className="mb-4 bg-red-50 border-2 border-black rounded-none p-4 text-sm text-red-800">
                 <strong>Error:</strong> {error}
@@ -698,7 +807,7 @@ const App: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
         <PaymentModal 
             isOpen={isPaymentModalOpen} 
@@ -724,22 +833,22 @@ const App: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Left Column: Input */}
-          <div className="lg:col-span-4 xl:col-span-4">
-            <div className="sticky top-24">
-                <div className="mb-6">
-                    <h2 className="text-2xl font-bold text-slate-900">Draft your next viral post</h2>
-                    <p className="text-slate-500 mt-2">Select your audience and category to access 80+ proven frameworks.</p>
-                </div>
+          <div className="lg:col-span-5 xl:col-span-4">
+            <div className="sticky top-24 space-y-6">
                 <InputForm 
                   onSubmit={handleGenerate} 
                   isLoading={isLoading} 
                   userSettings={userSettings}
                 />
+                <OrganizationProfilePanel 
+                  organizationInfo={userSettings.organizationInfo}
+                  onSave={handleOrganizationSave}
+                />
             </div>
           </div>
 
           {/* Right Column: Output */}
-          <div className="lg:col-span-8 xl:col-span-8">
+          <div className="lg:col-span-7 xl:col-span-8">
             {activeTab === 'history' ? (
               <HistoryPanel
                 items={historyItems}

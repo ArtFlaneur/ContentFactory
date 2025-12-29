@@ -1,9 +1,43 @@
-import { Audience, Category, PostGoal, PostTone } from "./types";
+import { Audience, Category, PostGoal, PostTone, Language } from "./types";
 
 export const AUDIENCE_OPTIONS = Object.values(Audience);
 export const CATEGORY_OPTIONS = Object.values(Category);
 export const GOAL_OPTIONS = Object.values(PostGoal);
 export const TONE_OPTIONS = Object.values(PostTone);
+export const LANGUAGE_OPTIONS = Object.values(Language);
+
+export const TRUSTED_ART_NEWS_SOURCES = [
+  {
+    id: 'artnews',
+    label: 'ARTnews Breaking',
+    url: 'https://www.artnews.com/category/news/',
+    description: 'Daily institutional and market coverage from the ARTnews editorial desk.'
+  },
+  {
+    id: 'artnet',
+    label: 'Artnet News Pro (Market)',
+    url: 'https://news.artnet.com/market',
+    description: 'Primary and secondary market intel, auction data, and fair analysis.'
+  },
+  {
+    id: 'artnewspaper',
+    label: 'The Art Newspaper',
+    url: 'https://www.theartnewspaper.com/',
+    description: 'Global museum, policy, and restitution reporting with on-the-ground journalists.'
+  },
+  {
+    id: 'artforum',
+    label: 'Artforum News & Critics Picks',
+    url: 'https://www.artforum.com/news',
+    description: 'Critic-driven exhibition coverage and curatorial appointments.'
+  },
+  {
+    id: 'artbasel',
+    label: 'Art Basel Stories',
+    url: 'https://www.artbasel.com/stories',
+    description: 'Official dispatches from Art Basel fairs, market trend explainers, and VIP insights.'
+  }
+];
 
 export interface FrameworkDefinition {
   id: string;
@@ -103,7 +137,50 @@ export const FRAMEWORKS: Record<string, FrameworkDefinition[]> = {
   [Category.NEWS]: [
     { id: "Framework 70", name: "TOP-3 News", description: "3 news items from the past 24 hours." }
   ],
-  [Category.COMMENTS]: []
+  [Category.COMMENTS]: [],
+  [Category.PRESS_RELEASES]: [
+    { id: "Framework 71", name: "Exhibition Opening Press Release", description: "Who -> What -> Where/When -> Why it matters -> Artist quote -> Gallery statement -> Viewing details." },
+    { id: "Framework 72", name: "Artist Representation Announcement", description: "Gallery proud to announce -> Artist background -> Career highlights -> Why this partnership -> First exhibition details." },
+    { id: "Framework 73", name: "Award/Recognition Press Release", description: "Achievement -> Context/significance -> Artist/gallery statement -> Career impact -> Next steps." },
+    { id: "Framework 74", name: "Acquisition/Sale Announcement", description: "Work acquired by [institution] -> Artwork details -> Historical significance -> Curator quote -> Gallery role." },
+    { id: "Framework 75", name: "Fair Participation Announcement", description: "Gallery presenting at [fair] -> Featured artists -> Booth location -> Highlight works -> VIP preview details." },
+    { id: "Framework 76", name: "Exhibition Extension/Closing", description: "Due to demand -> Extended until -> Exhibition highlights -> Final viewing opportunity -> Call to action." }
+  ],
+  [Category.EXHIBITION_ANNOUNCEMENTS]: [
+    { id: "Framework 77", name: "Opening Night Invitation", description: "Teaser hook -> Key works -> Artist presence -> Date/time/location -> RSVP urgency." },
+    { id: "Framework 78", name: "Last Chance to See", description: "Closing soon alert -> Exhibition highlights -> Visitor testimonials -> Final days -> Call to visit." },
+    { id: "Framework 79", name: "Mid-Show Momentum", description: "X days remaining -> Critical acclaim -> Works still available -> Behind-the-scenes moment -> Visit prompt." },
+    { id: "Framework 80", name: "Thematic Deep Dive", description: "Exhibition theme -> Lead artwork analysis -> Artist intention -> Curatorial thread -> Visit invitation." },
+    { id: "Framework 81", name: "Installation Teaser", description: "Behind-the-scenes setup -> Scale/ambition reveal -> Artist at work -> Opening date -> Anticipation build." },
+    { id: "Framework 82", name: "Exhibition Series Announcement", description: "Multi-show concept -> Season overview -> First exhibition focus -> Artist lineup -> Season pass/membership." }
+  ],
+  [Category.ARTIST_FEATURES]: [
+    { id: "Framework 83", name: "Artist Spotlight Deep Dive", description: "Artist background -> Practice philosophy -> Current work focus -> Process insights -> Where to see work." },
+    { id: "Framework 84", name: "Studio Visit Story", description: "Arrival moment -> Creative space details -> Work in progress -> Artist quote -> Upcoming opportunities." },
+    { id: "Framework 85", name: "Artwork Spotlight", description: "Visual hook -> Title/medium/dimensions -> Artist's intention -> Technical details -> Availability/inquiry." },
+    { id: "Framework 86", name: "Artist Career Milestone", description: "Recent achievement -> Career trajectory -> What makes them relevant now -> Next chapter -> Gallery relationship." },
+    { id: "Framework 87", name: "Process & Technique Feature", description: "Technique introduction -> Why artist uses it -> Materials/process -> Result on viewer -> Example work." },
+    { id: "Framework 88", name: "Artist Interview Excerpt", description: "Provocative question -> Artist's surprising answer -> Context/background -> Deeper insight -> Connection to current work." },
+    { id: "Framework 89", name: "Historical Context Positioning", description: "Art historical movement -> Artist's contemporary take -> What's different now -> Critical reception -> Why it matters." }
+  ],
+  [Category.COLLECTOR_COMMUNICATION]: [
+    { id: "Framework 90", name: "New Work Available", description: "Just arrived -> Artist background (brief) -> Work details -> Why now matters -> Private viewing offer." },
+    { id: "Framework 91", name: "Investment Perspective", description: "Artist market trajectory -> Recent sales/placements -> Critical momentum -> Current opportunity -> Discreet inquiry." },
+    { id: "Framework 92", name: "Collection Building Insight", description: "Theme/movement focus -> Why it's timely -> Key artists -> Strategic approach -> Consultation offer." },
+    { id: "Framework 93", name: "Fair/Biennale Insider Tip", description: "Event overview -> What to watch -> Gallery highlights -> Undervalued opportunity -> Private viewing arrangement." },
+    { id: "Framework 94", name: "Sold Work Announcement", description: "Work placed -> Collection significance -> Artist momentum -> Similar available works -> Waitlist/commission option." },
+    { id: "Framework 95", name: "Exclusive Preview Invitation", description: "Private viewing before public -> Featured works -> Artist attendance -> Date/time -> RSVP exclusivity." },
+    { id: "Framework 96", name: "Commission Opportunity", description: "Artist accepting commissions -> Recent commission example -> Process/timeline -> Investment range -> Expression of interest." }
+  ],
+  [Category.EVENT_INVITATIONS]: [
+    { id: "Framework 97", name: "VIP Opening Reception", description: "Exclusive first look -> Exhibition preview -> Artist meet-and-greet -> Curated experience -> RSVP details." },
+    { id: "Framework 98", name: "Artist Talk/Panel", description: "Topic/theme -> Speaker lineup -> What to expect -> Audience benefit -> Registration/seating." },
+    { id: "Framework 99", name: "Curator Walkthrough", description: "Exhibition context -> Curatorial vision -> Key insights to share -> Intimate group -> Booking required." },
+    { id: "Framework 100", name: "Workshop/Masterclass", description: "Skill/technique focus -> Artist/instructor -> What participants create -> Materials included -> Limited spots." },
+    { id: "Framework 101", name: "Collectors' Dinner", description: "Occasion/milestone -> Intimate gathering -> Artist presence -> Venue/menu teaser -> Exclusive invitation." },
+    { id: "Framework 102", name: "Portfolio Review/Studio Visit", description: "Opportunity description -> Who should attend -> What to bring -> Booking slots -> Selection criteria." },
+    { id: "Framework 103", name: "Collaboration Event", description: "Partner announcement -> Cross-disciplinary angle -> Unique experience -> Cultural relevance -> RSVP urgency." }
+  ]
 };
 
 // This context string contains the essence of the user's provided frameworks to ground the AI
@@ -206,6 +283,49 @@ CATEGORY 10: RED FLAGS / GREEN FLAGS
 CATEGORY 11: NEWS
 - Framework 70: TOP-3 News. Structure: 3 news items from the past 24 hours. Input: 3 links. Output: Short accompaniment for each news item + link.
 
+CATEGORY 12: PRESS RELEASES
+- Framework 71: Exhibition Opening Press Release. Structure: Who (gallery) -> What (exhibition title/concept) -> Where/When (venue/dates) -> Why it matters (cultural relevance) -> Artist quote -> Gallery director statement -> Viewing details/contact.
+- Framework 72: Artist Representation Announcement. Structure: Gallery proud to announce -> Artist background (accolades/education) -> Career highlights (shows/collections) -> Why this partnership matters -> First exhibition details.
+- Framework 73: Award/Recognition Press Release. Structure: Achievement announcement -> Context/significance in field -> Artist or gallery statement -> Career impact -> Next steps/upcoming.
+- Framework 74: Acquisition/Sale Announcement. Structure: Work acquired by [institution/collector] -> Artwork details (title/year/medium) -> Historical significance -> Curator or buyer quote -> Gallery's role in placement.
+- Framework 75: Fair Participation Announcement. Structure: Gallery presenting at [fair name] -> Featured artists for booth -> Booth location/number -> Highlight works -> VIP preview details.
+- Framework 76: Exhibition Extension/Closing. Structure: Due to popular demand -> Extended until [date] -> Exhibition highlights recap -> Final viewing opportunity -> Call to action (visit/book).
+
+CATEGORY 13: EXHIBITION ANNOUNCEMENTS
+- Framework 77: Opening Night Invitation. Structure: Teaser hook (provocative angle) -> Key works preview -> Artist presence confirmed -> Date/time/location -> RSVP urgency (limited capacity).
+- Framework 78: Last Chance to See. Structure: Closing soon alert -> Exhibition highlights -> Visitor testimonials or press quotes -> Final X days -> Strong call to visit now.
+- Framework 79: Mid-Show Momentum. Structure: X days remaining -> Critical acclaim received -> Works still available -> Behind-the-scenes moment -> Visit prompt.
+- Framework 80: Thematic Deep Dive. Structure: Exhibition theme introduction -> Lead artwork analysis -> Artist's intention -> Curatorial thread -> Visit invitation.
+- Framework 81: Installation Teaser. Structure: Behind-the-scenes setup in progress -> Scale/ambition reveal -> Artist at work image/story -> Opening date -> Anticipation build.
+- Framework 82: Exhibition Series Announcement. Structure: Multi-show concept -> Season overview (themes/timeline) -> First exhibition focus -> Full artist lineup -> Season pass/membership offer.
+
+CATEGORY 14: ARTIST FEATURES
+- Framework 83: Artist Spotlight Deep Dive. Structure: Artist background -> Practice philosophy -> Current work focus -> Process insights -> Where to see work now.
+- Framework 84: Studio Visit Story. Structure: Arrival moment -> Creative space details -> Work in progress -> Artist quote on process -> Upcoming opportunities to engage.
+- Framework 85: Artwork Spotlight. Structure: Visual hook (describe the piece) -> Title/medium/dimensions -> Artist's intention behind work -> Technical or conceptual details -> Availability/inquiry details.
+- Framework 86: Artist Career Milestone. Structure: Recent achievement -> Career trajectory summary -> What makes them culturally relevant now -> Next chapter preview -> Gallery relationship.
+- Framework 87: Process & Technique Feature. Structure: Technique introduction -> Why artist chose this approach -> Materials/process description -> Effect on viewer experience -> Example work shown.
+- Framework 88: Artist Interview Excerpt. Structure: Provocative question -> Artist's surprising or insightful answer -> Context/background -> Deeper implications -> Connection to current exhibition or work.
+- Framework 89: Historical Context Positioning. Structure: Art historical movement or precedent -> Artist's contemporary interpretation -> What's different or evolved -> Critical reception -> Why it matters to today's discourse.
+
+CATEGORY 15: COLLECTOR COMMUNICATION
+- Framework 90: New Work Available. Structure: Just arrived/released -> Artist background (brief, prestigious) -> Work details (medium/size/edition) -> Why timing matters (market/cultural moment) -> Private viewing invitation.
+- Framework 91: Investment Perspective. Structure: Artist market trajectory -> Recent sales/institutional placements -> Critical momentum indicators -> Current opportunity -> Discreet inquiry process.
+- Framework 92: Collection Building Insight. Structure: Theme or movement focus -> Why it's timely (market/cultural) -> Key artists in this space -> Strategic collecting approach -> Personalized consultation offer.
+- Framework 93: Fair/Biennale Insider Tip. Structure: Event overview -> What serious collectors should watch -> Gallery's booth highlights -> Undervalued opportunity to consider -> Private viewing arrangement at fair.
+- Framework 94: Sold Work Announcement. Structure: Work successfully placed -> Collection or institution significance -> Artist momentum impact -> Similar available works -> Waitlist or commission option.
+- Framework 95: Exclusive Preview Invitation. Structure: Private viewing opportunity before public opening -> Featured works preview -> Artist attendance -> Date/time exclusivity -> RSVP for limited spots.
+- Framework 96: Commission Opportunity. Structure: Artist now accepting commissions -> Recent commission example (image/context) -> Process and timeline -> Investment range indication -> Expression of interest process.
+
+CATEGORY 16: EVENT INVITATIONS
+- Framework 97: VIP Opening Reception. Structure: Exclusive first look for select guests -> Exhibition preview highlights -> Artist meet-and-greet -> Curated experience (wine/catering) -> RSVP details and deadline.
+- Framework 98: Artist Talk/Panel. Structure: Topic or theme -> Speaker lineup (credentials) -> What attendees will gain -> Conversation format -> Registration link and seating details.
+- Framework 99: Curator Walkthrough. Structure: Exhibition context -> Curatorial vision and thesis -> Key insights curator will share -> Intimate group size -> Booking required (limited).
+- Framework 100: Workshop/Masterclass. Structure: Skill or technique focus -> Artist or instructor background -> What participants will create/learn -> Materials included -> Limited spots/registration.
+- Framework 101: Collectors' Dinner. Structure: Occasion or milestone -> Intimate gathering setting -> Artist or curator presence -> Venue and culinary experience teaser -> Exclusive invitation (by invitation only).
+- Framework 102: Portfolio Review/Studio Visit. Structure: Opportunity description -> Who should attend (emerging artists/curators) -> What to bring (portfolio/work samples) -> Booking time slots -> Selection or application criteria.
+- Framework 103: Collaboration Event. Structure: Partner organization announcement -> Cross-disciplinary or multimedia angle -> Unique experience promise -> Cultural or social relevance -> RSVP urgency and details.
+
 WHEN GENERATING:
 1. Select the most appropriate Framework from the user's selected CATEGORY based on their TOPIC.
 2. If the user specifies a specific framework number, use that one.
@@ -283,5 +403,38 @@ export const FRAMEWORK_PRO_TIPS: Record<string, string> = {
   "Framework 67": "Share the psychological insight that justified the price and the lift it produced.",
   "Framework 68": "Describe the mindset script that moved you from scarcity to asset thinking.",
   "Framework 69": "Cluster flags into onboarding, governance, and finance so readers scan by risk zone.",
-  "Framework 70": "Curate news that impacts the bottom line or cultural relevance, not just gossip."
+  "Framework 70": "Curate news that impacts the bottom line or cultural relevance, not just gossip.",
+  "Framework 71": "Lead with the cultural hook before logistical details—why this exhibition matters to the discourse, not just the calendar.",
+  "Framework 72": "Highlight institutional validation (collections, awards, residencies) to establish artist credibility immediately.",
+  "Framework 73": "Quantify the achievement's rarity or competitive context so the recognition feels earned, not routine.",
+  "Framework 74": "Name the acquiring institution prominently and connect the work to their collection narrative for prestige.",
+  "Framework 75": "Include booth number and preview times early—collectors scan for logistics first, then artistic merit.",
+  "Framework 76": "Use visitor testimonials or press quotes as social proof to justify the extension and create urgency.",
+  "Framework 77": "Tease one iconic work as the 'reason to attend' and confirm artist presence to elevate the invitation's intimacy.",
+  "Framework 78": "Frame scarcity urgency around which works remain available, not just closing date, to trigger collector action.",
+  "Framework 79": "Share a behind-the-scenes moment (installation detail, artist insight) to reward engaged followers with insider access.",
+  "Framework 80": "Connect the artwork's formal qualities to the broader curatorial thesis so the post educates as it invites.",
+  "Framework 81": "Show the scale or labor of installation to build anticipation—physical transformation creates emotional investment.",
+  "Framework 82": "Position the series as a cohesive narrative arc so patrons see value in attending multiple shows.",
+  "Framework 83": "Anchor practice philosophy to a recognizable art historical reference so new audiences have an entry point.",
+  "Framework 84": "Describe sensory details of the studio space to transport readers and humanize the creative process.",
+  "Framework 85": "Mention dimensions early—collectors mentally place works in their spaces before engaging conceptually.",
+  "Framework 86": "Tie the milestone to market momentum or institutional validation to signal investment potential without stating price.",
+  "Framework 87": "Explain the technique's difficulty or rarity to justify the work's value and differentiate from digital reproductions.",
+  "Framework 88": "Choose a question that challenges artist mythology and let the answer reframe their practice authentically.",
+  "Framework 89": "Name the historical precedent clearly so the contemporary twist feels like evolution, not imitation.",
+  "Framework 90": "Lead with 'just arrived' to create immediacy, then layer in prestige markers (residency, collection placements) to justify interest.",
+  "Framework 91": "Cite specific auction results or institutional acquisitions as evidence, not opinion, to ground investment thesis.",
+  "Framework 92": "Identify an emerging theme before it becomes consensus—early positioning signals curatorial foresight.",
+  "Framework 93": "Offer logistical value (booth walkthrough appointment, pre-fair viewing) so the tip translates into convenience.",
+  "Framework 94": "Announce sold works to create scarcity and momentum while offering waitlist or commission path to capture demand.",
+  "Framework 95": "Emphasize 'before public opening' to trigger exclusivity reflex, then confirm artist attendance for intimacy.",
+  "Framework 96": "Show a past commission's context (collector's space, exhibition placement) to help prospects visualize their own.",
+  "Framework 97": "Specify 'select guests' or 'by invitation' to reinforce exclusivity even if invite list is broad.",
+  "Framework 98": "Preview a provocative question the panel will address so attendees feel they'll gain insider perspective.",
+  "Framework 99": "Cap group size and require booking to signal intimate access, not a public lecture.",
+  "Framework 100": "Promise a tangible takeaway (finished work, new skill) so attendees justify the time investment.",
+  "Framework 101": "Mention the venue or chef if notable—collectors attend for the holistic cultural experience.",
+  "Framework 102": "Clarify selection criteria upfront so applicants self-select and you receive higher-quality submissions.",
+  "Framework 103": "Name the partner organization and explain the conceptual bridge between disciplines to intrigue cross-sector audiences."
 };

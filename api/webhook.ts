@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 
 // Note: These keys must be set in Vercel Environment Variables
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-11-17.clover',
+  apiVersion: '2025-11-17.clover' as any,
 });
 
 // We need the SERVICE_ROLE_KEY to bypass RLS and update user profiles from the server

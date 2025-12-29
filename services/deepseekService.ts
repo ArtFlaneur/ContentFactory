@@ -1,5 +1,6 @@
-import { Category, PostRequest, GeneratedPost, SourceLink } from "../types";
+import { Category, PostRequest, GeneratedPost, SourceLink, Language, EmailTemplate } from "../types";
 import { SYSTEM_CONTEXT } from "../constants";
+import { getAntiAIPrompt, BANNED_AI_PHRASES } from "../constants/antiAIcringe";
 
 interface DeepSeekResponse {
   content?: Array<{
@@ -24,6 +25,7 @@ type SectionName =
   | "TELEGRAM_VERSION"
   | "INSTAGRAM_VERSION"
   | "YOUTUBE_VERSION"
+  | "EMAIL_VERSION"
   | "HOOKS";
 
 const canonicalizeSectionName = (raw: string): SectionName | null => {
@@ -36,6 +38,7 @@ const canonicalizeSectionName = (raw: string): SectionName | null => {
   if (key === "telegram_version" || key === "telegram" || key === "telegram version") return "TELEGRAM_VERSION";
   if (key === "instagram_version" || key === "instagram" || key === "instagram version") return "INSTAGRAM_VERSION";
   if (key === "youtube_version" || key === "youtube" || key === "youtube version") return "YOUTUBE_VERSION";
+  if (key === "email_version" || key === "email" || key === "email template" || key === "email version") return "EMAIL_VERSION";
   if (key === "hooks" || key === "hook" || key === "alt hooks" || key === "alternative hooks") return "HOOKS";
 
   return null;
@@ -51,6 +54,7 @@ const parseSectionsByHeadings = (text: string) => {
     TELEGRAM_VERSION: [],
     INSTAGRAM_VERSION: [],
     YOUTUBE_VERSION: [],
+    EMAIL_VERSION: [],
     HOOKS: []
   };
 
@@ -62,7 +66,7 @@ const parseSectionsByHeadings = (text: string) => {
   // ## SHORT_VERSION
   // **YOUTUBE_VERSION---
   // Telegram: ...
-  const headingRegex = /^\s*(?:[#>*\-–•]+\s*)?(?:[*_]{1,3}\s*)?(linkedin(?:\s+post(?:\s+content)?)?|short_version|short version|x\s*\/\s*threads|twitter|threads|telegram_version|telegram(?:\s+version)?|instagram_version|instagram(?:\s+version)?|youtube_version|youtube(?:\s+version)?|hooks|alternative hooks)\b\s*(?:---+)?\s*:?\s*(.*)$/i;
+  const headingRegex = /^\s*(?:[#>*\-–•]+\s*)?(?:[*_]{1,3}\s*)?(linkedin(?:\s+post(?:\s+content)?)?|short_version|short version|x\s*\/\s*threads|twitter|threads|telegram_version|telegram(?:\s+version)?|instagram_version|instagram(?:\s+version)?|youtube_version|youtube(?:\s+version)?|email_version|email(?:\s+version)?|email template|hooks|alternative hooks)\b\s*(?:---+)?\s*:?\s*(.*)$/i;
 
   for (const line of lines) {
     const match = line.match(headingRegex);
@@ -98,6 +102,7 @@ const parseSectionsByHeadings = (text: string) => {
     telegram: buckets.TELEGRAM_VERSION.join("\n").trim(),
     instagram: buckets.INSTAGRAM_VERSION.join("\n").trim(),
     youtube: buckets.YOUTUBE_VERSION.join("\n").trim(),
+    email: buckets.EMAIL_VERSION.join("\n").trim(),
     hooksRaw: buckets.HOOKS.join("\n").trim()
   };
 };
@@ -108,7 +113,7 @@ const normalizeLooseHeadingsToDelimiters = (text: string) => {
 
   // Convert decorated heading-style sections into strict delimiter lines.
   // Example: "**YOUTUBE_VERSION---" -> "---YOUTUBE_VERSION---"
-  const headingRegex = /^\s*(?:[#>*\-–•]+\s*)?(?:[*_]{1,3}\s*)?(linkedin(?:\s+post(?:\s+content)?)?|short_version|short version|x\s*\/\s*threads|twitter|threads|telegram_version|telegram(?:\s+version)?|instagram_version|instagram(?:\s+version)?|youtube_version|youtube(?:\s+version)?|hooks|alternative hooks)\b\s*(?:---+)?\s*:?\s*(.*)$/i;
+  const headingRegex = /^\s*(?:[#>*\-–•]+\s*)?(?:[*_]{1,3}\s*)?(linkedin(?:\s+post(?:\s+content)?)?|short_version|short version|x\s*\/\s*threads|twitter|threads|telegram_version|telegram(?:\s+version)?|instagram_version|instagram(?:\s+version)?|youtube_version|youtube(?:\s+version)?|email_version|email(?:\s+version)?|email template|hooks|alternative hooks)\b\s*(?:---+)?\s*:?\s*(.*)$/i;
 
   const out: string[] = [];
   for (const line of lines) {
@@ -143,6 +148,21 @@ const stripMarkdownEmphasis = (text: string | undefined) => {
   if (!text) return text;
   // Only intended for places where we render as plain text (e.g. YouTube tab).
   return text.replace(/\*\*/g, '').replace(/\*/g, '').replace(/__/g, '').replace(/_/g, '');
+};
+
+const parseEmailTemplateSection = (raw: string): EmailTemplate => {
+  const normalized = (raw || '').replace(/\r\n/g, '\n');
+  const subjectMatch = normalized.match(/Subject:\s*(.+)/i);
+  const greetingMatch = normalized.match(/Greeting:\s*(.+)/i);
+  const bodyMatch = normalized.match(/Body:\s*([\s\S]*?)(?:\n\s*Signature:|$)/i);
+  const signatureMatch = normalized.match(/Signature:\s*([\s\S]*)$/i);
+
+  return {
+    subject: subjectMatch?.[1]?.trim() || '',
+    greeting: greetingMatch?.[1]?.trim() || '',
+    body: bodyMatch?.[1]?.trim() || '',
+    signature: signatureMatch?.[1]?.trim() || ''
+  };
 };
 
 const looksUnsplit = (linkedInContent: string, shortContent?: string, telegramContent?: string, instagramContent?: string, youtubeContent?: string) => {
@@ -338,12 +358,18 @@ const generateComment = async (request: PostRequest): Promise<GeneratedPost> => 
     .map((p) => `${p.toUpperCase()}: <= ${PLATFORM_CHAR_LIMITS[p]} chars`)
     .join('\n');
 
+  const outputLanguage = request.language || Language.ENGLISH;
+  const antiAIRules = getAntiAIPrompt(outputLanguage);
+
   const prompt = `
 AUTHOR CONTEXT:
 - Industry: ${request.userContext?.industry || 'Art & Culture'}
 - Role: ${request.userContext?.role || 'Thought Leader'}
 - Location: ${request.userContext?.city ? `${request.userContext.city}, ` : ''}${request.userContext?.country || 'Global'}
 - Target Reader Profile: ${request.userContext?.targetAudience || request.audience}
+
+OUTPUT LANGUAGE: ${outputLanguage}
+Write the entire response in ${outputLanguage}. Do NOT translate headers/delimiters (keep ---SHORT_VERSION--- etc as is).
 
 TASK:
 Write a comment reply to the POST TEXT below. This is a *comment*, not a long-form post.
@@ -387,7 +413,8 @@ Structure your response exactly like this (ensure you include the delimiters):
 
 [YouTube Comment]
 
-STYLE GUIDE: Write like a human, not an AI. Avoid "AI-isms". Be raw, concrete, and conversational.
+${antiAIRules}
+
 CRITICAL: Do NOT fabricate facts, statistics, or quotes. If the post mentions a fact you can't verify, respond without adding new facts.
 `.trim();
 
@@ -483,6 +510,9 @@ export const generateLinkedInPost = async (request: PostRequest): Promise<Genera
     return generateComment(request);
   }
 
+  const outputLanguage = request.language || Language.ENGLISH;
+  const antiAIRules = getAntiAIPrompt(outputLanguage);
+
   const frameworkDirective = request.frameworkId
     ? `Use framework "${request.frameworkId}" exactly as defined.`
     : `Select the most relevant framework inside ${request.category} and mention it explicitly in the first line (e.g., "Framework Used: ...").`;
@@ -504,6 +534,18 @@ export const generateLinkedInPost = async (request: PostRequest): Promise<Genera
         : "Do NOT add external facts, stats, or sources. Do NOT include any links. (No sources were provided.)")
     : "";
 
+  const factCheckDirective = request.includeNews
+    ? (hasAllowedSources
+        ? `FACT-CHECKING REQUIREMENTS:
+- Treat ALLOWED_SOURCES as the only ground truth. No other data, names, or numbers are allowed.
+- Every statistic, quote, or news reference MUST be traceable to one of the ALLOWED_SOURCES.
+- Cite inline using Markdown links immediately after the sentence they support.
+- If the sources do not confirm a claim, explicitly say so or omit the claim entirely.`
+        : `FACT-CHECKING REQUIREMENTS:
+- News enrichment disabled automatically because no verified sources were supplied.
+- Do NOT invent dates, numbers, quotes, or external references.`)
+    : '';
+
   let specificInstructions = `
 1. Open with a strong hook.
 2. Use short paragraphs with clean breaks for readability.
@@ -512,7 +554,80 @@ export const generateLinkedInPost = async (request: PostRequest): Promise<Genera
 5. Output valid Markdown only.
 `;
 
-  if (request.frameworkId === "Framework 70") {
+  // Check if this is a Press Release category
+  const isPressRelease = request.category === Category.PRESS_RELEASES;
+
+  if (isPressRelease) {
+    const org = request.organizationInfo;
+    const organizationContext = org ? `
+ORGANIZATION INFORMATION (Use this data in press release):
+- Name: ${org.name}
+- Location: ${org.city}, ${org.country}
+${org.description ? `- About (Boilerplate): ${org.description}` : '- About: [Please provide organization description in press release]'}
+${org.website ? `- Website: ${org.website}` : ''}
+${org.contactName ? `- Media Contact Name: ${org.contactName}` : '- Media Contact Name: [Please specify]'}
+${org.contactEmail ? `- Media Contact Email: ${org.contactEmail}` : '- Media Contact Email: [Please specify]'}
+${org.contactPhone ? `- Media Contact Phone: ${org.contactPhone}` : ''}
+` : `
+ORGANIZATION INFORMATION:
+No saved organization data available. Please generate appropriate placeholders for:
+- Organization name (infer from context)
+- Location (use user context if available)
+- Boilerplate description
+- Media contact details
+`;
+
+    specificInstructions = `
+PRESS RELEASE FORMAT (STRICT):
+
+${organizationContext}
+
+1. Create a professional press release following standard gallery/museum format
+2. Structure:
+   - HEADLINE: Compelling, newsworthy, 10-15 words
+   - SUBHEADLINE: Supporting detail, optional
+   - RELEASE INFO: "[City, Country] - [Date]" - USE ORGANIZATION LOCATION FROM ABOVE
+   - BODY: 3-5 paragraphs with inverted pyramid structure
+     * Lead paragraph: Who, What, When, Where, Why
+     * Supporting details with quotes
+     * Context and significance
+     * Practical information (dates, venue, tickets)
+   - BOILERPLATE: "About [Gallery/Organization]" - USE ORGANIZATION INFO FROM ABOVE
+   - MEDIA CONTACT: USE CONTACT DETAILS FROM ABOVE (or create appropriate placeholders)
+
+3. Style Guidelines:
+   - Third person throughout
+   - NEVER use first-person singular pronouns (I, my, me / я, меня, мне / je, mon, ma)
+   - Write from institutional perspective: use "we" or organization name
+   - AP style for dates and numbers
+   - Include at least one quote from gallery director/curator/artist
+   - Professional, objective tone
+   - No hyperbole or marketing speak
+   - Factual and newsworthy angle
+
+4. Output format: Use delimiters to separate sections:
+---HEADLINE---
+[Headline text]
+
+---SUBHEADLINE---
+[Subheadline text or leave empty]
+
+---RELEASE_DATE---
+[City, Country] - [Date] OR "FOR IMMEDIATE RELEASE"
+
+---BODY---
+[Full press release body with paragraphs]
+
+---BOILERPLATE---
+About [Organization]:
+[Organization description]
+
+---MEDIA_CONTACT---
+Name: [Contact name]
+Email: [Email address]
+Phone: [Optional phone]
+`;
+  } else if (request.frameworkId === "Framework 70") {
     specificInstructions = `
 1. Create a "TOP-3 News" post.
 2. The TOPIC contains 3 links to news items.
@@ -523,12 +638,31 @@ export const generateLinkedInPost = async (request: PostRequest): Promise<Genera
 `;
   }
 
+  // Official/institutional categories (gallery, museum, agency) voice requirements
+  const isOfficialCategory = [
+    Category.PRESS_RELEASES,
+    Category.EXHIBITION_ANNOUNCEMENTS,
+    Category.COLLECTOR_COMMUNICATION,
+    Category.EVENT_INVITATIONS
+  ].includes(request.category);
+
+  const institutionalVoiceRule = isOfficialCategory ? `
+CRITICAL VOICE REQUIREMENT FOR OFFICIAL COMMUNICATIONS:
+- NEVER use first-person singular pronouns (I, my, me / я, моя, меня, мне, мой / je, mon, ma, me / ich, mein, mir, mich)
+- Write from institutional perspective: use "we" / "мы" / "nous" / "wir" or organization name
+- Represent the gallery/museum/agency as an entity, not an individual
+- Professional, institutional tone throughout
+` : '';
+
   const prompt = `
 AUTHOR CONTEXT:
 - Industry: ${request.userContext?.industry || 'Art & Culture'}
 - Role: ${request.userContext?.role || 'Thought Leader'}
 - Location: ${request.userContext?.city ? `${request.userContext.city}, ` : ''}${request.userContext?.country || 'Global'}
 - Target Reader Profile: ${request.userContext?.targetAudience || request.audience}
+
+OUTPUT LANGUAGE: ${outputLanguage}
+Write the entire response in ${outputLanguage}. Do NOT translate section delimiters (keep ---SHORT_VERSION---, ---TELEGRAM_VERSION---, etc. exactly as written).
 
 TARGET AUDIENCE: ${request.audience}
 CATEGORY: ${request.category}
@@ -538,12 +672,15 @@ TONE: ${request.tone}
 ${frameworkDirective}
 ${searchDirective}
 ${allowedSourcesBlock}
+${factCheckDirective}
+${institutionalVoiceRule}
 
 Write a high-impact LinkedIn post that follows the Art Flaneur/Eva voice, but adapted to the Author Context above.
 ALSO, generate a short version (max 280 chars) for X/Threads.
 ALSO, generate a Telegram version (use **bold** for emphasis, [text](url) for hidden links).
 ALSO, generate an Instagram Caption (engaging, more emojis, "link in bio", NO links in text).
 ALSO, generate a YouTube Script Outline (3-5 key bullet points for a video script). For emphasis inside YOUTUBE_VERSION, do NOT use Markdown ** or *; use direct Unicode bold/italic characters instead (e.g., 𝗕𝗢𝗟𝗗, 𝘪𝘵𝘢𝘭𝘪𝘤).
+ALSO, generate an executive-grade email/collector letter template with Subject, Greeting, Body (2-4 short paragraphs or bullets), and Signature. Keep it formal, make the CTA discreet but clear, and avoid emojis.
 ALSO, generate 5 alternative "Hooks" (opening lines) for the LinkedIn post.
 
 ${specificInstructions}
@@ -573,6 +710,15 @@ Structure your response exactly like this (ensure you include the delimiters):
 
 [YouTube Content]
 
+---EMAIL_VERSION---
+
+Subject: [Email Subject]
+Greeting: [Email greeting line]
+Body:
+[2-4 paragraphs or bullet points]
+Signature:
+[Sender name / title]
+
 ---HOOKS---
 
 1. [Hook Option 1]
@@ -581,8 +727,8 @@ Structure your response exactly like this (ensure you include the delimiters):
 4. [Hook Option 4]
 5. [Hook Option 5]
 
-CONSTRAINT: Do NOT use the em dash character ("—"). It is a dead giveaway of AI. You MUST use a standard hyphen ("-") or double hyphen ("--") instead.
-STYLE GUIDE: Write like a human, not an AI. Avoid "AI-isms" like "In the ever-evolving landscape", "delve deep", "testament to", "game-changer". Be punchy. Be raw. Use sentence fragments.
+${antiAIRules}
+
 CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources that do not exist. If you mention a specific event, study, or news item, it must be real and verifiable. If you are unsure of a fact, do not include it. STRICT BAN ON HALLUCINATIONS.
 `.trim();
 
@@ -636,6 +782,10 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources tha
   let instagramContent: string | undefined;
   let youtubeContent: string | undefined;
   let hooks: string[] = [];
+  let emailTemplate: EmailTemplate | undefined;
+  
+  // Press Release specific fields
+  let pressReleaseData: GeneratedPost['pressRelease'] | undefined;
 
   const parsedByDelimiters = parts.length > 1;
 
@@ -666,6 +816,51 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources tha
             .map((line) => line.replace(/^\d+\.\s*/, "").trim())
             .filter((line) => line.length > 0);
           break;
+        case "EMAIL_VERSION":
+          emailTemplate = parseEmailTemplateSection(sectionContent);
+          break;
+        // Press Release sections
+        case "HEADLINE":
+          if (!pressReleaseData) pressReleaseData = {} as any;
+          pressReleaseData.headline = sectionContent;
+          break;
+        case "SUBHEADLINE":
+          if (!pressReleaseData) pressReleaseData = {} as any;
+          pressReleaseData.subheadline = sectionContent;
+          break;
+        case "RELEASE_DATE":
+          if (!pressReleaseData) pressReleaseData = {} as any;
+          pressReleaseData.releaseDate = sectionContent;
+          // Extract location from format "[City, Country] - [Date]"
+          const locationMatch = sectionContent.match(/^([^-]+?)\s*-/);
+          if (locationMatch) {
+            pressReleaseData.location = locationMatch[1].trim();
+          } else {
+            pressReleaseData.location = request.userContext?.city && request.userContext?.country 
+              ? `${request.userContext.city}, ${request.userContext.country}`
+              : 'Location not specified';
+          }
+          break;
+        case "BODY":
+          if (!pressReleaseData) pressReleaseData = {} as any;
+          pressReleaseData.body = sectionContent;
+          break;
+        case "BOILERPLATE":
+          if (!pressReleaseData) pressReleaseData = {} as any;
+          pressReleaseData.boilerplate = sectionContent;
+          break;
+        case "MEDIA_CONTACT":
+          if (!pressReleaseData) pressReleaseData = {} as any;
+          // Parse contact info
+          const nameMatch = sectionContent.match(/Name:\s*(.+)/i);
+          const emailMatch = sectionContent.match(/Email:\s*(.+)/i);
+          const phoneMatch = sectionContent.match(/Phone:\s*(.+)/i);
+          pressReleaseData.mediaContact = {
+            name: nameMatch ? nameMatch[1].trim() : undefined,
+            email: emailMatch ? emailMatch[1].trim() : undefined,
+            phone: phoneMatch ? phoneMatch[1].trim() : undefined
+          };
+          break;
       }
     }
   } else {
@@ -677,6 +872,7 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources tha
       if (fallback.telegram) telegramContent = fallback.telegram;
       if (fallback.instagram) instagramContent = fallback.instagram;
       if (fallback.youtube) youtubeContent = fallback.youtube;
+      if (fallback.email) emailTemplate = parseEmailTemplateSection(fallback.email);
       if (fallback.hooksRaw) {
         hooks = fallback.hooksRaw
           .split("\n")
@@ -696,6 +892,7 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources tha
       if (fallback.telegram) telegramContent = fallback.telegram;
       if (fallback.instagram) instagramContent = fallback.instagram;
       if (fallback.youtube) youtubeContent = fallback.youtube;
+      if (fallback.email) emailTemplate = parseEmailTemplateSection(fallback.email);
       if (fallback.hooksRaw) {
         hooks = fallback.hooksRaw
           .split("\n")
@@ -705,6 +902,20 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources tha
     }
   }
 
+  if (pressReleaseData) {
+    const org = request.organizationInfo;
+    if (!org?.contactEmail) {
+      throw new Error('Organization contact email is required for press releases. Please fill in your organization details in the Factory Settings.');
+    }
+    const existingContact = pressReleaseData.mediaContact;
+    const mergedContact = {
+      name: existingContact?.name?.trim() || org.contactName || 'Media Relations',
+      email: existingContact?.email?.trim() || org.contactEmail,
+      phone: existingContact?.phone?.trim() || org.contactPhone || undefined
+    };
+    pressReleaseData.mediaContact = mergedContact;
+  }
+
   youtubeContent = stripMarkdownEmphasis(youtubeContent);
 
   // Validate and scrub any invalid URLs the model still emitted.
@@ -712,7 +923,8 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources tha
     ...extractLinks(linkedInContent).map((l) => l.url),
     ...(shortContent ? extractLinks(shortContent).map((l) => l.url) : []),
     ...(telegramContent ? extractLinks(telegramContent).map((l) => l.url) : []),
-    ...(youtubeContent ? extractLinks(youtubeContent).map((l) => l.url) : [])
+    ...(youtubeContent ? extractLinks(youtubeContent).map((l) => l.url) : []),
+    ...(emailTemplate?.body ? extractLinks(emailTemplate.body).map((l) => l.url) : [])
   ]);
 
   // First pass: remove placeholder/demo URLs regardless of whether they "work".
@@ -736,6 +948,12 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources tha
     telegramContent = scrubInvalidUrlLines(telegramContent, invalidUrls);
     youtubeContent = scrubInvalidUrlLines(youtubeContent, invalidUrls);
     hooks = hooks.filter((h) => !invalidUrls.some((u) => h.includes(u)));
+    if (emailTemplate) {
+      emailTemplate = {
+        ...emailTemplate,
+        body: scrubInvalidUrlLines(emailTemplate.body, invalidUrls) || emailTemplate.body
+      };
+    }
   }
 
   const sourceLinks = extractLinks(linkedInContent)
@@ -752,7 +970,9 @@ CRITICAL: Do NOT fabricate facts, statistics, or quotes. Do NOT cite sources tha
     youtubeContent: youtubeContent || undefined,
     alternativeHooks: hooks.length > 0 ? hooks : undefined,
     frameworkUsed: request.frameworkId || detectedFramework,
-    rationale: "Generated via DeepSeek chat completion.",
-    sourceLinks: sourceLinks.length > 0 ? sourceLinks : undefined
+    rationale: "Generated via Anthropic Claude AI.",
+    sourceLinks: sourceLinks.length > 0 ? sourceLinks : undefined,
+    emailTemplate: emailTemplate,
+    pressRelease: pressReleaseData || undefined
   };
 };

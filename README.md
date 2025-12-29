@@ -15,6 +15,9 @@ View your app in AI Studio: https://ai.studio/apps/drive/1yl5l6j2JBs0ypj0bTehgfK
 
 1. Install dependencies:
    `npm install`
-2. Set the `ANTHROPIC_API_KEY` in [.env.local](.env.local) to your Azure Anthropic API key. The Vite dev/preview server exposes a `/api/deepseek` proxy that injects this key server-side, so the browser never sees it.
+2. Create `.env.local` file based on `.env.example` and set:
+   - `ANTHROPIC_API_KEY` - Your Azure Anthropic API key
+   - `VITE_STRIPE_PAYMENT_LINK` - Your Stripe payment link (optional, defaults to production link)
+   - `SUPABASE_URL` and `SUPABASE_ANON_KEY` - Your Supabase project credentials
 3. Run the app:
    `npm run dev`

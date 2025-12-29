@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import { PostTone, type GeneratedPost, type HistoryItem, UserProfile, UserSettings } from '../types';
+import { PostTone, type GeneratedPost, type HistoryItem, OrganizationInfo, UserProfile, UserSettings } from '../types';
 
 const normalizeUserSettings = (raw: unknown): UserSettings => {
   const obj = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : {};
@@ -12,6 +12,27 @@ const normalizeUserSettings = (raw: unknown): UserSettings => {
     ? (obj.targetAudiences as string[]).slice(0, 3)
     : ['', '', ''];
 
+  let organizationInfo: OrganizationInfo | undefined;
+  const rawOrg = obj.organizationInfo;
+  if (rawOrg && typeof rawOrg === 'object') {
+    const orgObj = rawOrg as Record<string, unknown>;
+    const normalizedOrg: OrganizationInfo = {
+      name: typeof orgObj.name === 'string' ? (orgObj.name as string) : '',
+      description: typeof orgObj.description === 'string' ? (orgObj.description as string) : '',
+      website: typeof orgObj.website === 'string' ? (orgObj.website as string) : '',
+      city: typeof orgObj.city === 'string' ? (orgObj.city as string) : '',
+      country: typeof orgObj.country === 'string' ? (orgObj.country as string) : '',
+      contactName: typeof orgObj.contactName === 'string' ? (orgObj.contactName as string) : '',
+      contactEmail: typeof orgObj.contactEmail === 'string' ? (orgObj.contactEmail as string) : '',
+      contactPhone: typeof orgObj.contactPhone === 'string' ? (orgObj.contactPhone as string) : ''
+    };
+
+    const hasMeaningfulOrgData = Object.values(normalizedOrg).some((value) => typeof value === 'string' && value.trim().length > 0);
+    if (hasMeaningfulOrgData) {
+      organizationInfo = normalizedOrg;
+    }
+  }
+
   return {
     industry: typeof obj.industry === 'string' ? obj.industry : '',
     role: typeof obj.role === 'string' ? obj.role : '',
@@ -23,7 +44,8 @@ const normalizeUserSettings = (raw: unknown): UserSettings => {
       ? (obj.preferredTone as PostTone)
       : PostTone.PROFESSIONAL),
     customCTAs: Array.isArray(obj.customCTAs) ? (obj.customCTAs as string[]).filter((v) => typeof v === 'string') : [],
-    isPro: typeof obj.isPro === 'boolean' ? obj.isPro : undefined
+    isPro: typeof obj.isPro === 'boolean' ? obj.isPro : undefined,
+    organizationInfo
   };
 };
 
@@ -214,5 +236,7 @@ export const userService = {
       request: ((data as any).request || payload.request) as HistoryItem['request'],
       post: ((data as any).post || payload.post) as GeneratedPost
     };
-  }
+  },
+
+  
 };

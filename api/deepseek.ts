@@ -1,3 +1,4 @@
+import { checkRateLimit, getClientIdentifier } from './rateLimit';
 
 export default async function handler(req, res) {
   const ANTHROPIC_API_URL = 'https://eva-mj6ah3dq-eastus2.services.ai.azure.com/anthropic/v1/messages';
@@ -20,6 +21,28 @@ export default async function handler(req, res) {
     res.status(405).json({ error: 'Method not allowed. Use POST.' });
     return;
   }
+
+  // Rate limiting: 10 requests per minute per IP
+  const clientId = getClientIdentifier(req);
+  const rateLimit = checkRateLimit(clientId, {
+    limit: 10,
+    window: 60000 // 1 minute
+  });
+
+  if (!rateLimit.allowed) {
+    res.setHeader('X-RateLimit-Limit', '10');
+    res.setHeader('X-RateLimit-Remaining', '0');
+    res.setHeader('X-RateLimit-Reset', new Date(rateLimit.resetAt).toISOString());
+    res.status(429).json({ 
+      error: 'Too many requests. Please try again later.',
+      retryAfter: Math.ceil((rateLimit.resetAt - Date.now()) / 1000)
+    });
+    return;
+  }
+
+  res.setHeader('X-RateLimit-Limit', '10');
+  res.setHeader('X-RateLimit-Remaining', rateLimit.remaining.toString());
+  res.setHeader('X-RateLimit-Reset', new Date(rateLimit.resetAt).toISOString());
 
   const apiKey = process.env.ANTHROPIC_API_KEY || process.env.API_KEY;
 

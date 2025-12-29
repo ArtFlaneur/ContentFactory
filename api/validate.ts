@@ -1,3 +1,5 @@
+import { checkRateLimit, getClientIdentifier } from './rateLimit';
+
 type ValidationResult = {
   url: string;
   ok: boolean;
@@ -112,6 +114,28 @@ export default async function handler(req: any, res: any) {
     res.status(405).json({ error: 'Method not allowed. Use POST.' });
     return;
   }
+
+  // Rate limiting: 30 requests per minute per IP (more lenient for validation)
+  const clientId = getClientIdentifier(req);
+  const rateLimit = checkRateLimit(`validate:${clientId}`, {
+    limit: 30,
+    window: 60000 // 1 minute
+  });
+
+  if (!rateLimit.allowed) {
+    res.setHeader('X-RateLimit-Limit', '30');
+    res.setHeader('X-RateLimit-Remaining', '0');
+    res.setHeader('X-RateLimit-Reset', new Date(rateLimit.resetAt).toISOString());
+    res.status(429).json({ 
+      error: 'Too many validation requests. Please try again later.',
+      retryAfter: Math.ceil((rateLimit.resetAt - Date.now()) / 1000)
+    });
+    return;
+  }
+
+  res.setHeader('X-RateLimit-Limit', '30');
+  res.setHeader('X-RateLimit-Remaining', rateLimit.remaining.toString());
+  res.setHeader('X-RateLimit-Reset', new Date(rateLimit.resetAt).toISOString());
 
   const body = req.body && typeof req.body === 'object' ? req.body : {};
   const urls = Array.isArray(body.urls) ? (body.urls as unknown[]).filter((u) => typeof u === 'string') as string[] : [];

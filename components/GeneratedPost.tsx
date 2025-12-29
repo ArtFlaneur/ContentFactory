@@ -1,8 +1,9 @@
 import React from 'react';
 import { GeneratedPost as GeneratedPostType, UserSettings } from '../types';
-import { Copy, Check, RefreshCw, ExternalLink, Linkedin, Twitter, Send, Instagram, Youtube, Loader2 } from 'lucide-react';
+import { Copy, Check, RefreshCw, ExternalLink, Linkedin, Twitter, Send, Instagram, Youtube, Loader2, Mail } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
+import { PressReleaseView } from './PressReleaseView';
 
 interface GeneratedPostProps {
   post: GeneratedPostType | null;
@@ -10,19 +11,35 @@ interface GeneratedPostProps {
   statusText?: string | null;
   onReset: () => void;
   userSettings?: UserSettings | null;
+  variant?: 'default' | 'share';
 }
 
-type Tab = 'linkedin' | 'twitter' | 'telegram' | 'instagram' | 'youtube';
+type Tab = 'linkedin' | 'twitter' | 'telegram' | 'instagram' | 'youtube' | 'email';
 
-export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, isLoading, statusText, onReset, userSettings }) => {
+export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, isLoading, statusText, onReset, userSettings, variant = 'default' }) => {
   const [copied, setCopied] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<Tab>('linkedin');
 
+  const isShareVariant = variant === 'share';
+
+  // Check if this is a press release
+  const isPressRelease = post?.pressRelease !== undefined;
+
   // Determine visible tabs based on user settings
-  const visibleTabs = React.useMemo(() => {
-    if (!userSettings?.primaryPlatforms) return ['linkedin', 'twitter', 'telegram', 'instagram', 'youtube']; // Default to all if no settings
-    return userSettings.primaryPlatforms;
+  const platformTabs = React.useMemo<Tab[]>(() => {
+    if (!userSettings?.primaryPlatforms || userSettings.primaryPlatforms.length === 0) {
+      return ['linkedin', 'twitter', 'telegram', 'instagram', 'youtube'];
+    }
+    return userSettings.primaryPlatforms as Tab[];
   }, [userSettings]);
+
+  const visibleTabs = React.useMemo<Tab[]>(() => {
+    const tabs = [...platformTabs];
+    if (post?.emailTemplate && !tabs.includes('email')) {
+      tabs.push('email');
+    }
+    return tabs;
+  }, [platformTabs, post?.emailTemplate]);
 
   // Ensure active tab is valid when settings change
   React.useEffect(() => {
@@ -77,10 +94,19 @@ export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, isLoading, s
                           activeTab === 'twitter' ? post.shortContent :
                           activeTab === 'telegram' ? post.telegramContent :
                           activeTab === 'instagram' ? post.instagramContent :
-                          activeTab === 'youtube' ? post.youtubeContent : '';
+                          activeTab === 'youtube' ? post.youtubeContent :
+                          activeTab === 'email' && post.emailTemplate ? [
+                            `Subject: ${post.emailTemplate.subject}`,
+                            `Greeting: ${post.emailTemplate.greeting}`,
+                            '',
+                            post.emailTemplate.body,
+                            '',
+                            `Signature: ${post.emailTemplate.signature}`
+                          ].join('\n') : '';
     
     if (contentToCopy) {
-        navigator.clipboard.writeText(cleanText(contentToCopy));
+      const payload = activeTab === 'email' ? contentToCopy : cleanText(contentToCopy);
+      navigator.clipboard.writeText(payload);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     }
@@ -103,6 +129,11 @@ export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, isLoading, s
     </button>
   );
 
+  // If this is a press release, use dedicated press release view
+  if (isPressRelease) {
+    return <PressReleaseView post={post} onReset={onReset} />;
+  }
+
   return (
     <div className="bg-white rounded-none shadow-none border-2 border-black overflow-hidden flex flex-col h-full">
       <div className="bg-indigo-50 px-6 py-4 border-b-2 border-black flex justify-between items-center">
@@ -110,15 +141,17 @@ export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, isLoading, s
             <h3 className="font-semibold text-indigo-900">{post.title}</h3>
             <p className="text-xs text-indigo-500 mt-0.5">Tone: Professional, Raw, System-Oriented</p>
         </div>
+        {!isShareVariant && (
         <div className="flex space-x-2">
-            <button 
-                onClick={onReset}
-                className="p-2 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border-2 border-black rounded-none transition-colors"
-                title="Create New"
-            >
-                <RefreshCw size={18} />
-            </button>
+          <button 
+            onClick={onReset}
+            className="p-2 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border-2 border-black rounded-none transition-colors"
+            title="Create New"
+          >
+            <RefreshCw size={18} />
+          </button>
         </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -128,6 +161,7 @@ export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, isLoading, s
         {visibleTabs.includes('telegram') && renderTabButton('telegram', <Send size={16} />, 'Telegram', !post.telegramContent)}
         {visibleTabs.includes('instagram') && renderTabButton('instagram', <Instagram size={16} />, 'Instagram', !post.instagramContent)}
         {visibleTabs.includes('youtube') && renderTabButton('youtube', <Youtube size={16} />, 'YouTube', !post.youtubeContent)}
+        {visibleTabs.includes('email') && renderTabButton('email', <Mail size={16} />, 'Email', !post.emailTemplate)}
       </div>
       
       <div className="flex-1 p-6 prose prose-slate prose-indigo max-w-none">
@@ -170,6 +204,31 @@ export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, isLoading, s
             {activeTab === 'telegram' && <div className="whitespace-pre-wrap font-sans text-slate-700">{displayContent(post.telegramContent || '')}</div>}
             {activeTab === 'instagram' && <div className="whitespace-pre-wrap font-sans text-slate-700">{displayContent(post.instagramContent || '')}</div>}
             {activeTab === 'youtube' && <div className="whitespace-pre-wrap font-sans text-slate-700">{displayContent(post.youtubeContent || '')}</div>}
+            {activeTab === 'email' && post.emailTemplate && (
+              <div className="space-y-5 text-sm text-slate-800">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Subject</p>
+                  <p className="mt-1 font-medium text-slate-900">{post.emailTemplate.subject || 'Add a clear executive subject line'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Greeting</p>
+                  <p className="mt-1">{post.emailTemplate.greeting || 'Dear [Name],'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Body</p>
+                  <div className="mt-2 space-y-3">
+                    {(post.emailTemplate.body ? post.emailTemplate.body.split(/\n{2,}/) : ['Add 2-4 short paragraphs highlighting the opportunity.']).map((segment, idx) => (
+                      <p key={idx} className="whitespace-pre-line leading-relaxed">{segment}</p>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Signature</p>
+                  <p className="mt-1">{post.emailTemplate.signature || '[Name]\n[Role]\n[Gallery/Organization]'}</p>
+                </div>
+                <p className="text-[11px] text-slate-500">Tip: personalize the greeting + final CTA before sending to collectors or executives.</p>
+              </div>
+            )}
         </div>
 
         {/* Source Links Section - Only for LinkedIn or if relevant */}
@@ -192,6 +251,7 @@ export const GeneratedPost: React.FC<GeneratedPostProps> = ({ post, isLoading, s
             </div>
           </div>
         )}
+
       </div>
 
       <div className="p-4 bg-slate-50 border-t-2 border-black flex justify-end">
