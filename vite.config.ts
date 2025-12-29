@@ -44,6 +44,11 @@ const createDeepseekMiddleware = (apiKey: string): MiddlewareHandler => {
 
     try {
       const body = await readRequestBody(req);
+      
+      // Log request details for debugging
+      console.log('[Anthropic Proxy] Request received');
+      console.log('[Anthropic Proxy] Request body length:', body.length);
+      
       const upstream = await fetch(ANTHROPIC_API_URL, {
         method: 'POST',
         headers: {
@@ -55,12 +60,19 @@ const createDeepseekMiddleware = (apiKey: string): MiddlewareHandler => {
       });
 
       const responseBody = await upstream.text();
+      
+      // Log response for debugging
+      console.log('[Anthropic Proxy] Response status:', upstream.status);
+      if (!upstream.ok) {
+        console.error('[Anthropic Proxy] Error response:', responseBody);
+      }
+      
       res.statusCode = upstream.status;
       const contentType = upstream.headers.get('content-type') ?? 'application/json';
       res.setHeader('Content-Type', contentType);
       res.end(responseBody);
     } catch (error) {
-      console.error('Anthropic proxy error:', error);
+      console.error('[Anthropic Proxy] Fatal error:', error);
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ error: 'Anthropic proxy request failed. Check server logs for details.' }));

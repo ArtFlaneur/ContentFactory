@@ -173,7 +173,7 @@ const looksUnsplit = (linkedInContent: string, shortContent?: string, telegramCo
 
 const ANTHROPIC_API_URL = "https://eva-mj6ah3dq-eastus2.services.ai.azure.com/anthropic/v1/messages";
 const ANTHROPIC_PROXY_PATH = "/api/deepseek";
-const ANTHROPIC_MODEL = "claude-opus-4-5";
+const ANTHROPIC_MODEL = "claude-opus-4-5-20251101";
 const ANTHROPIC_API_VERSION = "2023-06-01";
 
 const isServer = typeof window === "undefined";
@@ -303,10 +303,22 @@ const callDeepSeek = async (prompt: string) => {
 
     if (!response.ok) {
       console.error("Anthropic API Error:", rawResponse);
-      throw new Error("Failed to generate post. Please check your API key or try again.");
+      let errorMessage = "Failed to generate post.";
+      try {
+        const errorData = JSON.parse(rawResponse);
+        if (errorData.error?.message) {
+          errorMessage += " " + errorData.error.message;
+        }
+      } catch {
+        // Keep default message
+      }
+      throw new Error(errorMessage);
     }
   } catch (error) {
     console.error("Anthropic Request Error:", error);
+    if (error instanceof Error && error.message.includes("Failed to generate")) {
+      throw error; // Re-throw API errors with full message
+    }
     throw new Error("Failed to contact Anthropic. Ensure the local proxy server is running and the API key is configured.");
   }
 
